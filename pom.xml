@@ -20,9 +20,36 @@
       <artifactId>javafx-controls</artifactId>
       <version>${javafx.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-media</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>Assets</directory>
+        <includes>
+          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/1.png</include>
+          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/2.png</include>
+          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/3.png</include>
+          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/4.png</include>
+          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/5.png</include>
+          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/6.png</include>
+          <include>menu-wind.wav</include>
+          <include>Potsu - sunny.mp3</include>
+          <include>Potsu - sunny (muffled).mp3</include>
+          <include>400 Sounds Pack/Card and Board/card_draw_1.wav</include>
+          <include>400 Sounds Pack/Card and Board/card_draw_2.wav</include>
+          <include>friendlyscribbles/friendlyscribbles.ttf</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
