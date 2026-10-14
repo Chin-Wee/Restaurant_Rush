@@ -12,6 +12,7 @@ import javafx.animation.ParallelTransition;
 import javafx.animation.SequentialTransition;
 import javafx.animation.TranslateTransition;
 import javafx.geometry.Bounds;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -266,6 +267,7 @@ public final class StartMenuScreen {
                 button.applyCss();
             }
             button.autosize();
+            button.layout();
         }
         positionButton(startButton, (width - startButton.prefWidth(-1)) / 2,
                 height * 0.9 - startButton.prefHeight(-1) / 2);
@@ -274,10 +276,11 @@ public final class StartMenuScreen {
         double menuTop = height * 0.9 - menuButton.prefHeight(-1);
         double menuGap = baseButtonFontSize(hardButton) * 0.1;
         double hardTop = menuTop - menuGap - hardButton.prefHeight(-1);
-        double mediumTop = hardTop - mediumButton.prefHeight(-1)
-                - baseButtonFontSize(mediumButton) * 0.01;
-        double easyTop = mediumTop - easyButton.prefHeight(-1)
-                - baseButtonFontSize(easyButton) * 0.01;
+        Bounds hardText = buttonTextBounds(hardButton);
+        Bounds mediumText = buttonTextBounds(mediumButton);
+        Bounds easyText = buttonTextBounds(easyButton);
+        double mediumTop = hardTop + hardText.getMinY() - mediumText.getMaxY();
+        double easyTop = mediumTop + mediumText.getMinY() - easyText.getMaxY();
         positionButton(menuButton, menuX, menuCenterY);
         positionButton(hideButton, menuX, menuCenterY);
         positionButton(hardButton, menuX, hardTop + hardButton.prefHeight(-1) / 2);
@@ -288,6 +291,12 @@ public final class StartMenuScreen {
     private void centerText(Text text, double top) {
         Bounds bounds = text.getLayoutBounds();
         text.relocate((root.getWidth() - bounds.getWidth()) / 2, top);
+    }
+
+    private Bounds buttonTextBounds(Button button) {
+        Node text = button.lookup(".text");
+        return text == null || button.getScene() == null ? button.getLayoutBounds()
+                : button.sceneToLocal(text.localToScene(text.getBoundsInLocal()));
     }
 
     private void dropTitle() {
@@ -330,7 +339,8 @@ public final class StartMenuScreen {
 
     private double baseButtonFontSize(Button button) {
         double size = button == startButton ? buttonFontSize : Math.max(1, buttonFontSize - 5);
-        return button == easyButton ? size * 0.7 : size;
+        return button == startButton || button == menuButton || button == hideButton
+                ? size : size * 0.7;
     }
 
     private void transitionDifficultyMenu(boolean show) {
@@ -343,12 +353,11 @@ public final class StartMenuScreen {
         SequentialTransition transition = new SequentialTransition();
         if (show) {
             transition.getChildren().addAll(
-                    new ParallelTransition(fade(menuButton, 0, 0.2), fade(title, 0, 0.25)),
+                    fade(menuButton, 0, 0.2),
                     new PauseTransition(Duration.seconds(0.3)), fade(hideButton, 1, 0.2));
             transition.getChildren().addAll(fade(hardButton, 1, 0.18),
                     fade(mediumButton, 1, 0.18), fade(easyButton, 1, 0.18));
         } else {
-            fade(title, 1, 0.25).play();
             transition.getChildren().addAll(fade(easyButton, 0, 0.18),
                     fade(mediumButton, 0, 0.18), fade(hardButton, 0, 0.18));
             transition.getChildren().addAll(fade(hideButton, 0, 0.2),
