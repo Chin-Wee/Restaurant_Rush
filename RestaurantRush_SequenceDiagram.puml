@@ -75,3 +75,29 @@ Waiter -> c : placeOrder(menuItem, lockedPriceCents)
 c -> o : new Order(menuItem, lockedPriceCents)
 deactivate Waiter
 end
+
+' ==== Phase 4 (Turn 2): Kitchen preparation (opt + alt frames) ====
+opt chefDecision == ADVANCE
+GameController -> Chef : advance(c, turn)
+activate Chef
+Chef -> o : advance(turn)
+activate o
+alt unitsDone == preparationUnits
+o -> o : setStatus(READY)
+end
+deactivate o
+deactivate Chef
+end
+
+' ==== Phase 4 (Turn 2): Serving (opt frame) ====
+opt waiterDecision == SERVE and order.canServe(turn)
+GameController -> Waiter : serve(c, turn)
+activate Waiter
+Waiter -> c : serveOrder(turn)
+activate c
+c -> o : serve(turn) -> setStatus(SERVED)
+c -> c : setState(EATING)
+deactivate c
+deactivate Waiter
+end
+@enduml
