@@ -40,4 +40,8 @@ GameController -> GameController : snapshot()
 GameController -->> ConsoleUI : return snapshot
 deactivate GameController
 ConsoleUI -> ConsoleUI : displayTurnStart(snapshot)
-@enduml
+
+' ==== Phase 2 (Turn 2): Manager Input & Decisions ====
+ConsoleUI -> ConsoleUI : promptManagerChoices()
+ConsoleUI -> GameController : submitTurnChoices(\nwaiterDecision, chefDecision, hostDecision)
+activate GameController
