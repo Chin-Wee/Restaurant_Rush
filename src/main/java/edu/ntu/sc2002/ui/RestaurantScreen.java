@@ -1,7 +1,17 @@
 package edu.ntu.sc2002.ui;
 
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import javafx.animation.AnimationTimer;
@@ -9,6 +19,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.layout.Pane;
+import javafx.scene.paint.Color;
 
 /** Separate ground and foreground tile layers, following Stardew Valley's room layering. */
 public final class RestaurantScreen {
@@ -25,6 +36,20 @@ public final class RestaurantScreen {
     public static final int ROOM_WIDTH = COLUMNS * TILE_SIZE;
     public static final int ROOM_HEIGHT = ROWS * TILE_SIZE;
     private static final int KITCHEN_SOURCE_ROW = 10;
+    private static final Set<String> CUSTOMER_PEOPLE = Set.of("adam", "amelia", "bob");
+    private static final double WALK_TILES_PER_SECOND = 2.8;
+    private static final double CHEF_STOP_SECONDS = 0.6;
+    private static final long WALK_FRAME_NANOS = 120_000_000L;
+    private static final long IDLE_FRAME_NANOS = 400_000_000L;
+    private static final Tile CUSTOMER_SPAWN = new Tile(0, 5);
+    private static final Tile CUSTOMER_CHAIR = new Tile(3, 6);
+    private static final Tile STOVE_APPROACH = new Tile(16, 3);
+    private static final Tile[] DISH_SPOTS = {
+            new Tile(15, 4), new Tile(16, 4), new Tile(17, 4), new Tile(18, 4)
+    };
+    private static final Tile[] CHEF_STOPS = {
+            STOVE_APPROACH, DISH_SPOTS[0], DISH_SPOTS[1], DISH_SPOTS[2], DISH_SPOTS[3]
+    };
     private static final String TILE_PATH = "/Modern tiles_Free/Interiors_free/16x16/split-16x16/Room_Builder_free_16x16/";
     private static final String INTERIORS_TILE_PATH = "/Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/";
     private static final String KITCHEN_TILE_PATH = "/Kitchen and more tileset [16x16]/split-16x16/tileset/";
@@ -46,15 +71,26 @@ public final class RestaurantScreen {
     private final Image diningChairTop = loadInteriorsTile("c06_r21.png");
     private final Image diningChairBottom = loadInteriorsTile("c06_r22.png");
     private final Image[][] kitchenChunk = loadKitchenChunk();
-    private final Actor[] actors = {
-            new Actor(loadFrames("adam", "idle", "up", 6), 17, 4),
-            new Actor(loadFrames("alex", "idle", "left", 6), 12, 7),
-            new Actor(loadFrames("amelia", "idle", "down", 6), 14, 4),
-            new Actor(loadFrames("bob", "sit3", "down", 3), 3, 6)
-    };
+    private static final boolean[][] MOVEMENT_AREA = createMovementArea();
+    private final Actor chef = new Actor(new Tile(17, 4), loadDirectionalFrames("adam", "idle", 6),
+            loadDirectionalFrames("adam", "run", 6), null, Direction.UP);
+    private final Actor waiter = new Actor(new Tile(12, 7), loadSingleDirection("alex", "idle", "left", 6),
+            null, null, Direction.LEFT);
+    private final Actor cashier = new Actor(new Tile(14, 4), loadSingleDirection("amelia", "idle", "down", 6),
+            null, null, Direction.DOWN);
+    private final Actor firstCustomer = customer("bob", CUSTOMER_SPAWN);
+    private final Actor[] actors = {chef, waiter, cashier, firstCustomer};
+    private final boolean[] dishesPlaced = new boolean[DISH_SPOTS.length];
+    private int chefStopIndex;
+    private double chefPauseSeconds;
+    private long previousAnimationNanos;
     private final AnimationTimer actorAnimation = new AnimationTimer() {
         @Override
         public void handle(long now) {
+            double delta = previousAnimationNanos == 0 ? 0
+                    : Math.min((now - previousAnimationNanos) / 1_000_000_000.0, 0.1);
+            previousAnimationNanos = now;
+            updateMovement(delta);
             drawActors(now);
         }
     };
@@ -79,6 +115,7 @@ public final class RestaurantScreen {
         root.sceneProperty().addListener((observable, oldScene, newScene) -> {
             if (newScene == null) {
                 actorAnimation.stop();
+                previousAnimationNanos = 0;
             } else {
                 actorAnimation.start();
             }
@@ -130,14 +167,169 @@ public final class RestaurantScreen {
         return frames;
     }
 
+    private static Image[][] loadSingleDirection(String person, String action, String direction, int count) {
+        Image[][] frames = new Image[Direction.values().length][];
+        Direction facing = Direction.fromName(direction);
+        frames[facing.ordinal()] = loadFrames(person, action, direction, count);
+        return frames;
+    }
+
+    private static Image[][] loadDirectionalFrames(String person, String action, int count) {
+        Image[][] frames = new Image[Direction.values().length][];
+        for (Direction direction : Direction.values()) {
+            frames[direction.ordinal()] = loadFrames(person, action, direction.path, count);
+        }
+        return frames;
+    }
+
+    private static Actor customer(String person, Tile spawn) {
+        if (!CUSTOMER_PEOPLE.contains(person)) {
+            throw new IllegalArgumentException("Not an allowed customer: " + person);
+        }
+        Actor actor = new Actor(spawn, loadDirectionalFrames(person, "idle", 6),
+                loadDirectionalFrames(person, "run", 6), loadFrames(person, "sit3", "down", 3), Direction.RIGHT);
+        actor.follow(requirePath(spawn, CUSTOMER_CHAIR), true);
+        return actor;
+    }
+
+    private static boolean[][] createMovementArea() {
+        boolean[][] movement = new boolean[ROWS][COLUMNS];
+        for (int row = FLOOR_TOP_ROW; row < ROWS; row++) {
+            Arrays.fill(movement[row], true);
+        }
+        for (int column = 0; column < KITCHEN_LEFT_COLUMN; column++) {
+            block(movement, column, FLOOR_TOP_ROW);
+        }
+        for (int row = 0; row < PATCH_ROWS; row++) {
+            for (int column = KITCHEN_LEFT_COLUMN; column < COLUMNS; column++) {
+                block(movement, column, row);
+            }
+        }
+        for (int row = FLOOR_TOP_ROW + 1; row <= KITCHEN_BOTTOM_ROW; row++) {
+            block(movement, KITCHEN_LEFT_COLUMN - 1, row);
+        }
+        block(movement, KITCHEN_LEFT_COLUMN, KITCHEN_BOTTOM_ROW - 1);
+        for (int column = KITCHEN_LEFT_COLUMN; column < COLUMNS; column++) {
+            block(movement, column, KITCHEN_BOTTOM_ROW);
+        }
+        for (int tableColumn : DINING_TABLE_COLUMNS) {
+            int chairColumn = tableColumn - 1;
+            block(movement, chairColumn, DINING_ROW - 1);
+            block(movement, chairColumn, DINING_ROW);
+            block(movement, tableColumn, DINING_ROW);
+        }
+        return movement;
+    }
+
+    private static void block(boolean[][] movement, int column, int row) {
+        movement[row][column] = false;
+    }
+
+    private static List<Tile> requirePath(Tile start, Tile destination) {
+        List<Tile> path = findPath(start, destination);
+        if (path.isEmpty()) {
+            throw new IllegalStateException("No movement path from " + start + " to " + destination);
+        }
+        return path;
+    }
+
+    // Stardew Valley's PathFindController uses four-way A* with a Manhattan heuristic for tile routes.
+    private static List<Tile> findPath(Tile start, Tile destination) {
+        if (!inside(start) || !inside(destination) || !MOVEMENT_AREA[start.row][start.column]) {
+            return List.of();
+        }
+        Comparator<SearchNode> priority = Comparator.comparingInt(SearchNode::score)
+                .thenComparingLong(SearchNode::order);
+        PriorityQueue<SearchNode> open = new PriorityQueue<>(priority);
+        Map<Tile, Integer> costs = new HashMap<>();
+        Map<Tile, Tile> previous = new HashMap<>();
+        Set<Tile> closed = new HashSet<>();
+        long order = 0;
+        costs.put(start, 0);
+        open.add(new SearchNode(start, 0, manhattan(start, destination), order++));
+
+        while (!open.isEmpty()) {
+            SearchNode current = open.remove();
+            if (current.cost != costs.getOrDefault(current.tile, Integer.MAX_VALUE) || !closed.add(current.tile)) {
+                continue;
+            }
+            if (current.tile.equals(destination)) {
+                return reconstructPath(start, destination, previous);
+            }
+            for (Direction direction : Direction.values()) {
+                Tile next = new Tile(current.tile.column + direction.dx, current.tile.row + direction.dy);
+                if (!inside(next) || (!MOVEMENT_AREA[next.row][next.column] && !next.equals(destination))
+                        || closed.contains(next)) {
+                    continue;
+                }
+                int nextCost = current.cost + 1;
+                if (nextCost < costs.getOrDefault(next, Integer.MAX_VALUE)) {
+                    costs.put(next, nextCost);
+                    previous.put(next, current.tile);
+                    open.add(new SearchNode(next, nextCost, nextCost + manhattan(next, destination), order++));
+                }
+            }
+        }
+        return List.of();
+    }
+
+    private static List<Tile> reconstructPath(Tile start, Tile destination, Map<Tile, Tile> previous) {
+        List<Tile> path = new ArrayList<>();
+        for (Tile tile = destination; tile != null; tile = previous.get(tile)) {
+            path.add(tile);
+            if (tile.equals(start)) {
+                Collections.reverse(path);
+                return path;
+            }
+        }
+        return List.of();
+    }
+
+    private static boolean inside(Tile tile) {
+        return tile.column >= 0 && tile.column < COLUMNS && tile.row >= 0 && tile.row < ROWS;
+    }
+
+    private static int manhattan(Tile left, Tile right) {
+        return Math.abs(left.column - right.column) + Math.abs(left.row - right.row);
+    }
+
+    private void updateMovement(double delta) {
+        firstCustomer.advance(delta);
+        if (chef.isMoving()) {
+            if (chef.advance(delta)) {
+                int arrivedStop = chefStopIndex - 1;
+                if (arrivedStop > 0) {
+                    dishesPlaced[arrivedStop - 1] = true;
+                    drawFurniture();
+                }
+                chefPauseSeconds = CHEF_STOP_SECONDS;
+            }
+        } else if (chefPauseSeconds > 0) {
+            chefPauseSeconds = Math.max(0, chefPauseSeconds - delta);
+        } else if (chefStopIndex < CHEF_STOPS.length) {
+            chef.follow(requirePath(chef.tile(), CHEF_STOPS[chefStopIndex]), false);
+            chefStopIndex++;
+        }
+    }
+
     private void drawActors(long now) {
         drawLayer(actorLayer, graphics -> {
+            drawTarget(graphics, STOVE_APPROACH, Color.web("#F5C96B"));
+            for (Tile dishSpot : DISH_SPOTS) {
+                drawTarget(graphics, dishSpot, Color.web("#67D1B0"));
+            }
             for (Actor actor : actors) {
-                Image frame = actor.frames[(int) ((now / 400_000_000L) % actor.frames.length)];
-                graphics.drawImage(frame, actor.column * TILE_SIZE, (actor.row - 1) * TILE_SIZE,
-                        TILE_SIZE, TILE_SIZE * 2);
+                graphics.drawImage(actor.frame(now), actor.column * TILE_SIZE,
+                        (actor.row - 1) * TILE_SIZE, TILE_SIZE, TILE_SIZE * 2);
             }
         });
+    }
+
+    private static void drawTarget(GraphicsContext graphics, Tile tile, Color color) {
+        graphics.setStroke(color);
+        graphics.setLineWidth(3);
+        graphics.strokeRect(tile.column * TILE_SIZE + 6, tile.row * TILE_SIZE + 6,
+                TILE_SIZE - 12, TILE_SIZE - 12);
     }
 
     private void drawFloor() {
@@ -185,7 +377,26 @@ public final class RestaurantScreen {
                 drawTile(graphics, diningChairBottom, chairColumn, DINING_ROW);
                 drawTile(graphics, diningTable, tableColumn, DINING_ROW);
             }
+            drawDishes(graphics);
         });
+    }
+
+    private void drawDishes(GraphicsContext graphics) {
+        for (int i = 0; i < dishesPlaced.length; i++) {
+            if (!dishesPlaced[i]) {
+                continue;
+            }
+            Tile counter = DISH_SPOTS[i];
+            double x = counter.column * TILE_SIZE;
+            double y = (counter.row + 1) * TILE_SIZE;
+            graphics.setFill(Color.web("#F3EFDE"));
+            graphics.fillOval(x + 18, y + 18, 28, 23);
+            graphics.setStroke(Color.web("#737985"));
+            graphics.setLineWidth(2);
+            graphics.strokeOval(x + 18, y + 18, 28, 23);
+            graphics.setFill(Color.web("#D98749"));
+            graphics.fillOval(x + 26, y + 24, 12, 10);
+        }
     }
 
     private void drawLayer(Canvas layer, Consumer<GraphicsContext> drawTiles) {
@@ -212,5 +423,124 @@ public final class RestaurantScreen {
         graphics.drawImage(tile, column * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
 
-    private record Actor(Image[] frames, int column, int row) {}
+    private static final class Actor {
+        private final Image[][] idleFrames;
+        private final Image[][] runFrames;
+        private final Image[] sittingFrames;
+        private double column;
+        private double row;
+        private Direction direction;
+        private List<Tile> path = List.of();
+        private int nextPathIndex;
+        private double progress;
+        private boolean sitOnArrival;
+        private boolean seated;
+
+        private Actor(Tile start, Image[][] idleFrames, Image[][] runFrames, Image[] sittingFrames,
+                Direction direction) {
+            this.idleFrames = idleFrames;
+            this.runFrames = runFrames;
+            this.sittingFrames = sittingFrames;
+            this.direction = direction;
+            column = start.column;
+            row = start.row;
+        }
+
+        private Tile tile() {
+            return new Tile((int) Math.round(column), (int) Math.round(row));
+        }
+
+        private void follow(List<Tile> path, boolean sitOnArrival) {
+            this.path = path;
+            nextPathIndex = path.size() > 1 ? 1 : path.size();
+            progress = 0;
+            this.sitOnArrival = sitOnArrival;
+            seated = path.size() == 1 && sitOnArrival;
+            if (seated) {
+                direction = Direction.DOWN;
+            }
+        }
+
+        private boolean isMoving() {
+            return nextPathIndex < path.size();
+        }
+
+        private boolean advance(double delta) {
+            if (!isMoving() || delta <= 0) {
+                return false;
+            }
+            Tile from = path.get(nextPathIndex - 1);
+            Tile to = path.get(nextPathIndex);
+            direction = Direction.between(from, to);
+            progress = Math.min(1, progress + delta * WALK_TILES_PER_SECOND);
+            column = from.column + (to.column - from.column) * progress;
+            row = from.row + (to.row - from.row) * progress;
+            if (progress < 1) {
+                return false;
+            }
+            nextPathIndex++;
+            progress = 0;
+            if (isMoving()) {
+                return false;
+            }
+            path = List.of();
+            nextPathIndex = 0;
+            if (sitOnArrival) {
+                seated = true;
+                direction = Direction.DOWN;
+            }
+            return true;
+        }
+
+        private Image frame(long now) {
+            Image[] frames;
+            long frameDuration;
+            if (seated) {
+                frames = sittingFrames;
+                frameDuration = IDLE_FRAME_NANOS;
+            } else if (isMoving() && runFrames != null) {
+                frames = runFrames[direction.ordinal()];
+                frameDuration = WALK_FRAME_NANOS;
+            } else {
+                frames = idleFrames[direction.ordinal()];
+                if (frames == null) {
+                    frames = Arrays.stream(idleFrames).filter(Objects::nonNull).findFirst().orElseThrow();
+                }
+                frameDuration = IDLE_FRAME_NANOS;
+            }
+            return frames[(int) ((now / frameDuration) % frames.length)];
+        }
+    }
+
+    private record Tile(int column, int row) {}
+
+    private record SearchNode(Tile tile, int cost, int score, long order) {}
+
+    private enum Direction {
+        RIGHT(1, 0, "right"),
+        UP(0, -1, "up"),
+        LEFT(-1, 0, "left"),
+        DOWN(0, 1, "down");
+
+        private final int dx;
+        private final int dy;
+        private final String path;
+
+        Direction(int dx, int dy, String path) {
+            this.dx = dx;
+            this.dy = dy;
+            this.path = path;
+        }
+
+        private static Direction fromName(String name) {
+            return Arrays.stream(values()).filter(direction -> direction.path.equals(name)).findFirst().orElseThrow();
+        }
+
+        private static Direction between(Tile from, Tile to) {
+            int dx = to.column - from.column;
+            int dy = to.row - from.row;
+            return Arrays.stream(values()).filter(direction -> direction.dx == dx && direction.dy == dy)
+                    .findFirst().orElseThrow();
+        }
+    }
 }
