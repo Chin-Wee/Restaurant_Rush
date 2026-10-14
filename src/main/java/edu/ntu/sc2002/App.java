@@ -2,8 +2,8 @@ package edu.ntu.sc2002;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
-import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
+import edu.ntu.sc2002.ui.RestaurantScreen;
 import edu.ntu.sc2002.ui.StartMenuScreen;
 
 public class App extends Application {
@@ -12,8 +12,12 @@ public class App extends Application {
     @Override
     public void start(Stage stage) {
         stage.setTitle("Restaurant Rush");
-        Scene placeholder = new Scene(new Pane(), 1280, 720);
-        startMenu = new StartMenuScreen(() -> stage.setScene(placeholder));
+        Scene restaurant = new Scene(new RestaurantScreen().getRoot(),
+                RestaurantScreen.ROOM_WIDTH, RestaurantScreen.ROOM_HEIGHT);
+        startMenu = new StartMenuScreen(() -> {
+            stage.setScene(restaurant);
+            stage.sizeToScene();
+        });
         stage.setScene(new Scene(startMenu.getRoot(), 1280, 720));
         stage.setResizable(true);
         stage.show();
