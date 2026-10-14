@@ -1,0 +1,43 @@
+@startuml
+skinparam shadowing false
+skinparam boxPadding 10
+
+box "Boundary" #DAE8FC
+boundary ":ConsoleUI" as ConsoleUI
+end box
+
+box "Control" #FFE6CC
+control ":GameController" as GameController
+end box
+
+box "Staff Services" #F8CECC
+participant ":Host" as Host
+participant ":Waiter" as Waiter
+participant ":Chef" as Chef
+participant ":Cashier" as Cashier
+participant ":CustomerFactory" as CustomerFactory
+end box
+
+box "Domain / Entities" #D5E8D4
+entity ":Restaurant" as Restaurant
+entity ":WaitingQueue" as WaitingQueue
+entity "t:Table" as t
+entity "c:VIPCustomer" as c
+entity "o:Order" as o
+entity "menu:Menu" as menu
+participant "calc:BillCalculator" as calc
+participant "hh:HappyHour" as hh
+participant "sb:ScoreBoard" as sb
+end box
+' ==== Phase 1 (Turn 2): Start of Turn & Display ====
+ConsoleUI -> GameController : beginTurn(activateHappyHour = true)
+activate GameController
+GameController -> hh : activate(turn = 2)
+GameController -> CustomerFactory : createCustomer(VIP, "C1", ordinal, seed)
+GameController -> Restaurant : registerArrival(c)
+Restaurant -> WaitingQueue : enqueue(c)
+GameController -> GameController : snapshot()
+GameController -->> ConsoleUI : return snapshot
+deactivate GameController
+ConsoleUI -> ConsoleUI : displayTurnStart(snapshot)
+@enduml
