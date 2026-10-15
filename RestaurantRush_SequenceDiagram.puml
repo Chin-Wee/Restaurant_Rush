@@ -29,6 +29,7 @@ participant "calc:BillCalculator" as calc
 participant "hh:HappyHour" as hh
 participant "sb:ScoreBoard" as sb
 end box
+
 ' ==== Phase 1 (Turn 2): Start of Turn & Display ====
 ConsoleUI -> GameController : beginTurn(activateHappyHour = true)
 activate GameController
@@ -103,4 +104,39 @@ end
 deactivate o
 deactivate Chef
 end
-@enduml
+
+' ==== Phase 5 (Turn 2): Eating completion & automated payment (Step 4) ====
+loop for each seated customer
+GameController -> c : finishEating(turn)
+activate c
+c -> c : setState(READY_TO_PAY)
+deactivate c
+end
+
+GameController -> Cashier : collectOldest(restaurant, turn)
+activate Cashier
+Cashier -> Restaurant : oldestPaymentCandidate(turn)
+Cashier -> Restaurant : completePayment(c)
+activate Restaurant
+Restaurant -> t : vacate()
+Restaurant -> c : setState(PAID)
+Restaurant -> o : markPaid()
+Restaurant -->> Cashier : returns paymentRecord
+deactivate Restaurant
+Cashier -> sb : recordPayment(paymentRecord)
+deactivate Cashier
+
+' ==== Phase 5 (Turn 2): Waiting loss & abandonment (Step 5) ====
+loop for each waiting/seated unserved customer
+GameController -> c : applyWaitingLoss()
+activate c
+opt satisfaction == 0
+c -> Restaurant : abandon(c)
+activate Restaurant
+Restaurant -> o : cancel()
+Restaurant -> t : vacate()
+Restaurant -> sb : recordDeparture()
+deactivate Restaurant
+end
+deactivate c
+end
