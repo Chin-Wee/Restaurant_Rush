@@ -140,3 +140,19 @@ deactivate Restaurant
 end
 deactivate c
 end
+
+' ==== Phase 6 (Turn 2): Turn Resolution & Final Result Check (Step 6) ====
+GameController -->> ConsoleUI : returns TurnResolution
+deactivate GameController
+ConsoleUI -> ConsoleUI : displayTurnSummary(resolution)
+
+opt currentTurn == 18 (Final Turn Check)
+ConsoleUI -> GameController : result()
+activate GameController
+GameController -> sb : evaluateResult()
+sb -->> GameController : returns GameResult (VICTORY / DEFEAT)
+GameController -->> ConsoleUI : returns GameResult
+deactivate GameController
+ConsoleUI -> ConsoleUI : displayEndGameResult(result)
+end
+@enduml
