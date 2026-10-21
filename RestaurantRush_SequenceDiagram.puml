@@ -34,9 +34,21 @@ end box
 ConsoleUI -> GameController : beginTurn(activateHappyHour = true)
 activate GameController
 GameController -> hh : activate(turn = 2)
+activate hh
+hh -->> GameController : returns
+deactivate hh
 GameController -> CustomerFactory : createCustomer(VIP, "C1", ordinal, seed)
+activate CustomerFactory
+CustomerFactory -->> GameController : returns c
+deactivate CustomerFactory
 GameController -> Restaurant : registerArrival(c)
+activate Restaurant
 Restaurant -> WaitingQueue : enqueue(c)
+activate WaitingQueue
+WaitingQueue -->> Restaurant : returns
+deactivate WaitingQueue
+Restaurant -->> GameController : returns
+deactivate Restaurant
 GameController -> GameController : snapshot()
 GameController -->> ConsoleUI : return snapshot
 deactivate GameController
@@ -54,9 +66,20 @@ activate Host
 Host -> Restaurant : seat(c)
 activate Restaurant
 Restaurant -> WaitingQueue : dequeue()
+activate WaitingQueue
+WaitingQueue -->> Restaurant : returns
+deactivate WaitingQueue
 Restaurant -> t : assign(c)
+activate t
+t -->> Restaurant : returns
+deactivate t
 Restaurant -> c : setState(SEATED)
+activate c
+c -->> Restaurant : returns
+deactivate c
+Restaurant -->> Host : returns
 deactivate Restaurant
+Host -->> GameController : returns
 deactivate Host
 end
 
@@ -65,15 +88,29 @@ opt waiterDecision == TAKE_ORDER
 GameController -> Waiter : takeOrder(c, menu, calc, turn)
 activate Waiter
 Waiter -> c : chooseItem(menu)
+activate c
 c -->> Waiter : returns menuItem
+deactivate c
 Waiter -> calc : quote(menuItem, c, turn)
 activate calc
 calc -> c : applyCustomerDiscount(basePrice) (VIP 10% off)
+activate c
+c -->> calc : returns vipPrice
+deactivate c
 calc -> hh : applyDiscount(vipPrice, turn) (Happy Hour 20% off)
+activate hh
+hh -->> calc : returns lockedPriceCents
+deactivate hh
 calc -->> Waiter : returns lockedPriceCents
 deactivate calc
 Waiter -> c : placeOrder(menuItem, lockedPriceCents)
+activate c
 c -> o : new Order(menuItem, lockedPriceCents)
+activate o
+deactivate o
+c -->> Waiter : returns
+deactivate c
+Waiter -->> GameController : returns order
 deactivate Waiter
 end
 
@@ -86,9 +123,12 @@ activate c
 c -> o : serve(turn)
 activate o
 o -> o : setStatus(SERVED)
+o -->> c : returns
 deactivate o
 c -> c : setState(EATING)
+c -->> Waiter : returns
 deactivate c
+Waiter -->> GameController : returns
 deactivate Waiter
 end
 
@@ -101,7 +141,9 @@ activate o
 opt unitsDone == preparationUnits
 o -> o : setStatus(READY)
 end
+o -->> Chef : returns
 deactivate o
+Chef -->> GameController : returns
 deactivate Chef
 end
 
@@ -110,20 +152,37 @@ loop for each seated customer
 GameController -> c : finishEating(turn)
 activate c
 c -> c : setState(READY_TO_PAY)
+c -->> GameController : returns
 deactivate c
 end
 
 GameController -> Cashier : collectOldest(restaurant, turn)
 activate Cashier
 Cashier -> Restaurant : oldestPaymentCandidate(turn)
+activate Restaurant
+Restaurant -->> Cashier : returns c
+deactivate Restaurant
 Cashier -> Restaurant : completePayment(c)
 activate Restaurant
 Restaurant -> t : vacate()
+activate t
+t -->> Restaurant : returns
+deactivate t
 Restaurant -> c : setState(PAID)
+activate c
+c -->> Restaurant : returns
+deactivate c
 Restaurant -> o : markPaid()
+activate o
+o -->> Restaurant : returns
+deactivate o
 Restaurant -->> Cashier : returns paymentRecord
 deactivate Restaurant
 Cashier -> sb : recordPayment(paymentRecord)
+activate sb
+sb -->> Cashier : returns
+deactivate sb
+Cashier -->> GameController : returns paymentRecord
 deactivate Cashier
 
 ' ==== Phase 5 (Turn 2): Waiting loss & abandonment (Step 5) ====
@@ -134,10 +193,21 @@ opt satisfaction == 0
 c -> Restaurant : abandon(c)
 activate Restaurant
 Restaurant -> o : cancel()
+activate o
+o -->> Restaurant : returns
+deactivate o
 Restaurant -> t : vacate()
+activate t
+t -->> Restaurant : returns
+deactivate t
 Restaurant -> sb : recordDeparture()
+activate sb
+sb -->> Restaurant : returns
+deactivate sb
+Restaurant -->> c : returns
 deactivate Restaurant
 end
+c -->> GameController : returns
 deactivate c
 end
 
@@ -150,7 +220,9 @@ opt currentTurn == 18 (Final Turn Check)
 ConsoleUI -> GameController : result()
 activate GameController
 GameController -> sb : evaluateResult()
+activate sb
 sb -->> GameController : returns GameResult (VICTORY / DEFEAT)
+deactivate sb
 GameController -->> ConsoleUI : returns GameResult
 deactivate GameController
 ConsoleUI -> ConsoleUI : displayEndGameResult(result)
