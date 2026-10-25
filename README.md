@@ -1,16 +1,23 @@
 # Restaurant Rush
 
-Blank JavaFX application.
+Stage 1 command-line restaurant game. The Stage 1 model and six-step turn loop live in `entity` and `control`; `ConsoleUI` only formats snapshots and reads choices.
 
 ## Run on macOS
 
-Install JDK 17, then run from the project directory:
+Install JDK 17, then compile and run from the project directory:
 
 ```sh
-./mvnw javafx:run
+./mvnw -q package
+java -cp target/classes edu.ntu.sc2002.App
 ```
 
-The first run downloads Maven and the JavaFX dependencies.
+Pass an optional seed to reproduce customer food choices, for example `java -cp target/classes edu.ntu.sc2002.App 2026`.
+
+## Stage 1 checks
+
+Run `./mvnw -q test`. `StageOneGameTest` verifies the assignment's Pasta trace and validation/payment rules. `StageOneRunTest` runs complete 18-turn Victory and Defeat scenarios. See [reproducible Stage 1 checks](docs/Stage1-TestNotes.md) for seeds and decisions.
+
+Stage 1 contains no VIP, Critic, Host, combos, customer subclasses or Happy Hour. The draw.io class diagram is labeled Stage 3; its Stage 1 subset is implemented from `docs/uml/DesignNotes.md` and the attached Stage 1 requirements.
 
 ## Architecture
 
