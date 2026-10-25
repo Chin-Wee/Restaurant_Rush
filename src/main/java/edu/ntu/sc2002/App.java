@@ -6,7 +6,10 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 import edu.ntu.sc2002.ui.RestaurantScreen;
-import edu.ntu.sc2002.ui.RestaurantUiState;
+import edu.ntu.sc2002.presentation.RestaurantUiState;
+import edu.ntu.sc2002.ui.preview.RestaurantUiFixtures;
+import edu.ntu.sc2002.ui.preview.ScenePreviewDriver;
+import edu.ntu.sc2002.ui.scene.RestaurantScene;
 import edu.ntu.sc2002.ui.StartMenuScreen;
 
 public class App extends Application {
@@ -22,7 +25,9 @@ public class App extends Application {
                 Integer.toString(RestaurantScreen.ROOM_WIDTH)));
         int previewHeight = Integer.parseInt(options.getOrDefault("previewHeight",
                 Integer.toString(RestaurantScreen.ROOM_HEIGHT)));
-        Scene restaurant = new Scene(new RestaurantScreen(preview,
+        RestaurantScene room = new RestaurantScene();
+        new ScenePreviewDriver(room);
+        Scene restaurant = new Scene(new RestaurantScreen(room, preview,
                 command -> System.out.println("UI command: " + command)).getRoot(),
                 previewWidth, previewHeight);
         startMenu = new StartMenuScreen(() -> {
@@ -51,21 +56,21 @@ public class App extends Application {
 
     private static RestaurantUiState previewState(Map<String, String> options, int stage) {
         if (Boolean.parseBoolean(options.getOrDefault("previewResult", "false"))) {
-            return RestaurantUiState.previewResult(stage,
+            return RestaurantUiFixtures.previewResult(stage,
                     Boolean.parseBoolean(options.getOrDefault("previewVictory", "true")));
         }
         if (Boolean.parseBoolean(options.getOrDefault("previewRejected", "false"))) {
-            return RestaurantUiState.previewRejectedChoice(stage);
+            return RestaurantUiFixtures.previewRejectedChoice(stage);
         }
         if (Boolean.parseBoolean(options.getOrDefault("previewReadyToResolve", "false"))) {
-            return RestaurantUiState.previewReadyToResolve(stage);
+            return RestaurantUiFixtures.previewReadyToResolve(stage);
         }
         if (Boolean.parseBoolean(options.getOrDefault("previewHappyHourActive", "false"))) {
-            return RestaurantUiState.previewHappyHourActive();
+            return RestaurantUiFixtures.previewHappyHourActive();
         }
         if (Boolean.parseBoolean(options.getOrDefault("previewAfterWaiter", "false"))) {
-            return RestaurantUiState.previewAfterWaiter(stage);
+            return RestaurantUiFixtures.previewAfterWaiter(stage);
         }
-        return RestaurantUiState.preview(stage);
+        return RestaurantUiFixtures.preview(stage);
     }
 }
