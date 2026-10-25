@@ -6,7 +6,11 @@ public final class Order {
     private OrderStatus status = OrderStatus.PLACED;
     private Integer readyTurn;
     private Integer servedTurn;
-    public Order(MenuItem item, int lockedPriceCents) { this.item = item; this.lockedPriceCents = lockedPriceCents; }
+    public Order(MenuItem item, int lockedPriceCents) {
+        this.item = java.util.Objects.requireNonNull(item);
+        if (lockedPriceCents < 0) throw new IllegalArgumentException("Invalid order price");
+        this.lockedPriceCents = lockedPriceCents;
+    }
     public MenuItem item() { return item; }
     public int lockedPriceCents() { return lockedPriceCents; }
     public int unitsDone() { return unitsDone; }
@@ -24,5 +28,8 @@ public final class Order {
         status = OrderStatus.SERVED; servedTurn = turn;
     }
     public void markPaid() { if (status != OrderStatus.SERVED) throw new IllegalStateException("Order was not served"); status = OrderStatus.PAID; }
-    public void cancel() { if (status != OrderStatus.PAID) status = OrderStatus.CANCELLED; }
+    public void cancel() {
+        if (status == OrderStatus.SERVED || status == OrderStatus.PAID) throw new IllegalStateException("Only unfinished orders can be cancelled");
+        status = OrderStatus.CANCELLED;
+    }
 }

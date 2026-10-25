@@ -10,10 +10,10 @@ public class StageOneGameTest {
         return new GameController(GameConfig.stageOne(seed), new Restaurant(), new ScoreBoard());
     }
     private void waiter(GameController game, WaiterTaskType task, String id) {
-        assertNull(game.submitWaiterDecision(new WaiterDecision(task, id)));
+        assertTrue(game.submitWaiterDecision(new WaiterDecision(task, id)).isSuccessful());
     }
     private void chef(GameController game, ChefTaskType task, String id) {
-        assertNull(game.submitChefDecision(new ChefDecision(task, id)));
+        assertTrue(game.submitChefDecision(new ChefDecision(task, id)).isSuccessful());
     }
     private void begin(GameController game) { game.beginTurn(); game.processArrival(); }
 
@@ -39,10 +39,10 @@ public class StageOneGameTest {
 
     @Test public void invalidChoicesDoNotChangeStateOrConsumeTask() {
         GameController game = game(2026); begin(game);
-        assertNotNull(game.submitWaiterDecision(new WaiterDecision(WaiterTaskType.SEAT, "missing")));
+        assertFalse(game.submitWaiterDecision(new WaiterDecision(WaiterTaskType.SEAT, "missing")).isSuccessful());
         assertEquals(1, game.restaurant().waitingQueue().getMembers().size());
-        assertNull(game.submitWaiterDecision(new WaiterDecision(WaiterTaskType.SEAT, "C1")));
-        assertNotNull(game.submitChefDecision(new ChefDecision(ChefTaskType.ADVANCE, "C1")));
+        assertTrue(game.submitWaiterDecision(new WaiterDecision(WaiterTaskType.SEAT, "C1")).isSuccessful());
+        assertFalse(game.submitChefDecision(new ChefDecision(ChefTaskType.ADVANCE, "C1")).isSuccessful());
         assertEquals(100, game.restaurant().customers().get(0).satisfaction().getValue());
         assertEquals(TurnPhase.MANAGER_CHOICES, game.phase());
     }
@@ -50,7 +50,7 @@ public class StageOneGameTest {
     @Test public void waiterCanCompleteOnlyOneValidTaskPerTurn() {
         GameController game = game(2026); begin(game);
         waiter(game, WaiterTaskType.SEAT, "C1");
-        assertNotNull(game.submitWaiterDecision(new WaiterDecision(WaiterTaskType.TAKE_ORDER, "C1")));
+        assertFalse(game.submitWaiterDecision(new WaiterDecision(WaiterTaskType.TAKE_ORDER, "C1")).isSuccessful());
         assertNull(game.restaurant().customers().get(0).order());
         assertEquals(CustomerState.SEATED, game.restaurant().customers().get(0).state());
     }
@@ -77,5 +77,16 @@ public class StageOneGameTest {
             tooFew.recordServed(); tooFew.recordPayment(new PaymentRecord("C" + i, 1800, 90));
         }
         assertEquals(GameResult.DEFEAT, tooFew.evaluateResult());
+        ScoreBoard exact = new ScoreBoard();
+        for (int cents : new int[] {900, 900, 900, 1800}) {
+            exact.recordServed(); exact.recordPayment(new PaymentRecord("boundary", cents, 60));
+        }
+        assertEquals(4500, exact.revenueCents());
+        assertEquals(GameResult.VICTORY, exact.evaluateResult());
+        ScoreBoard centBelow = new ScoreBoard();
+        for (int cents : new int[] {900, 900, 900, 1799}) {
+            centBelow.recordServed(); centBelow.recordPayment(new PaymentRecord("boundary", cents, 60));
+        }
+        assertEquals(GameResult.DEFEAT, centBelow.evaluateResult());
     }
 }

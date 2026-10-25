@@ -1,11 +1,50 @@
 # Stage 1 reproducible checks
 
-Run `./mvnw -q clean test`.
+Build and run the acceptance checks with `./mvnw -q clean package`. The suite covers the exact base setting, Pasta trace, role limits, invalid retries, all victory thresholds, turn sequencing, payment timing/priority, abandonment, terminal-state guards, immutable views, input handling and the actual CLI.
 
-`StageOneGameTest.reproducesPastaExampleAndDefersPayment` uses game seed `2`. The first arrival's choice seed is `3`, so C1 selects Pasta. Actions: turn 1 seat C1; turn 2 take C1's order and advance it; turn 3 advance it; turn 4 serve it; turn 5 wait; turn 6 wait. Expected satisfaction is 92, 84, and 76 at the ends of turns 1–3, then remains 76. Served count increases on turn 4; the $18.00 payment and paid-satisfaction record occur on turn 6, after the full eating turn and one-turn payment delay.
+## Actual CLI replays
 
-`StageOneRunTest.seed2026WithOldestReadyAndOldestQueuePolicyWins` is the reproducible Victory run (seed `2026`, all 18 turns): each turn, serve the oldest order that was READY before the turn; otherwise take an order for the oldest seated customer without one; otherwise seat the oldest queued customer if a table is free; otherwise WAIT. The Chef advances the oldest order still being prepared, or WAITs if none. The test asserts VICTORY at turn 18.
+```sh
+java -cp target/classes edu.ntu.sc2002.App 2026 < src/test/resources/stage1/victory-seed-2026.txt
+java -cp target/classes edu.ntu.sc2002.App 2026 < src/test/resources/stage1/defeat-seed-2026.txt
+```
 
-`StageOneRunTest.seed2026WithWaitEveryTurnLoses` is the reproducible Defeat run (seed `2026`): choose WAIT for both Waiter and Chef for all 18 turns. The test asserts zero payments and DEFEAT at turn 18.
+| Run | Turns | Served | Paid | Departures | Revenue | Average paid satisfaction | Result |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Victory input, seed 2026 | 18 | 5 | 4 | 0 | $51.00 | 78.0 | VICTORY |
+| Both roles WAIT, seed 2026 | 18 | 0 | 0 | 2 | $0.00 | N/A | DEFEAT |
 
-The scenarios call the controller directly to keep exact decisions reproducible. To play interactively, run `java -cp target/classes edu.ntu.sc2002.App 2026` after compiling.
+These are actual stdin command files checked by `ConsoleUiTest`, including parsing, display and ending. No automatic player is part of the game. Input uses Waiter 1=Seat, 2=Take order, 3=Serve, 4=Wait; Chef 1=Advance, 2=Wait, followed by customer IDs when prompted.
+
+The Victory script uses this deterministic policy: serve the oldest already-ready order; otherwise take the oldest seated customer's order; otherwise seat the oldest queued customer if a table is free; otherwise Wait. Chef advances the oldest unfinished order or waits. The recorded choices are:
+
+| Turn | Waiter | Chef |
+| --- | --- | --- |
+| 1 | SEAT C1 | WAIT |
+| 2 | TAKE_ORDER C1 | ADVANCE C1 |
+| 3 | SERVE C1 | WAIT |
+| 4 | SEAT C2 | WAIT |
+| 5 | TAKE_ORDER C2 | ADVANCE C2 |
+| 6 | WAIT | ADVANCE C2 |
+| 7 | SERVE C2 | WAIT |
+| 8 | SEAT C3 | WAIT |
+| 9 | TAKE_ORDER C3 | ADVANCE C3 |
+| 10 | SERVE C3 | WAIT |
+| 11 | SEAT C4 | WAIT |
+| 12 | TAKE_ORDER C4 | ADVANCE C4 |
+| 13 | SERVE C4 | WAIT |
+| 14 | SEAT C5 | WAIT |
+| 15 | TAKE_ORDER C5 | ADVANCE C5 |
+| 16 | SEAT C6 | ADVANCE C5 |
+| 17 | SERVE C5 | WAIT |
+| 18 | TAKE_ORDER C6 | ADVANCE C6 |
+
+## Assignment Pasta example
+
+`StageOneGameTest.reproducesPastaExampleAndDefersPayment` uses game seed 2, giving C1 choice seed 3 and Pasta. Turn 1: seat C1, satisfaction 92. Turn 2: take order plus first Chef unit, 84. Turn 3: second unit becomes READY, 76. Turn 4: serve, served count increments, no loss. Turn 5: READY_TO_PAY, still no payment. Turn 6: $18.00 payment and satisfaction 76 recorded, table and inverse customer table ID cleared.
+
+Food choice for every customer uses Java Random with seed = game seed + arrival ordinal, selecting uniformly by index from `[Salad, Burger, Pasta]`. This formula and menu order are part of the reproducibility contract. No food is chosen by manager input.
+
+## UML audit
+
+After compiling, run `python3 scripts/audit_stage1_api.py --check`. It confirms the [API inventory](Stage1-Api-Differences.md) is current against the retained Stage 3 diagram and compiled Stage 1 classes. It does not claim zero UML differences. See [the full trace and findings](Stage1-Parity-Audit.md) for their disposition and the outstanding GitHub tag publication check.

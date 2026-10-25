@@ -13,10 +13,12 @@ The checked-in class diagram describes Stage 3. Stage 1 implements the core subs
 
 ## Dependency direction
 
-`App → ConsoleUI → GameController → entity`. The UI passes typed decisions and displays immutable snapshots; it cannot access mutable entities or the ScoreBoard and does not calculate eligibility, satisfaction, revenue, or outcomes. The controller validates a choice before applying it, then resolves Waiter before Chef, then eating/payment, waiting loss/abandonment, and end statistics. Service count increments when an order is served; paid count, revenue, and recorded paid satisfaction increment at payment. Money is integer cents in the model and formatted only at the UI boundary.
+`App → ConsoleUI → GameController → entity`. The UI passes typed decisions and displays immutable snapshots/results; it cannot access mutable entities or the ScoreBoard and does not calculate eligibility, satisfaction, revenue, or outcomes. Each command returns `TurnResolution` with success/error data. The controller rejects duplicate/out-of-order turn operations and consumes only successful choices. Service count increments when an order is served; paid count, revenue, and recorded paid satisfaction increment at payment. All model money uses integer cents.
+
+Flow: begin → start display → scheduled arrival → accepted Waiter choice → display chosen food → refreshed Chef choices → accepted Chef choice → eating → one eligible payment → waiting loss/abandonment → statistics → next turn or final result. `readyTurn` and `readyToPayTurn` must be strictly earlier than service/payment turns. Snapshots use null for no paid average; CLI renders N/A.
 
 The assignment's six-step Stage 1 loop is the game-specific reference. Keep presentation mechanics out of it. If a visual client is added later, put JavaFX screens and scene movement in `ui`, retain the controller/entity boundary, and map immutable snapshots to the visual view model. Do not make animation completion advance an order or turn.
 
-The checked-in Stage 3 UML's `ScoreBoard` operations do not yet include `recordServed()`. Add it to the final diagram when reconciling the Stage 3 design: the task spec reports served and paid customers as distinct progress measures.
+The supplied Stage 3 UML is retained unchanged at the user's request. All shared API differences, staged exclusions, extra declarations, and relationship dispositions are marked in [the API inventory](Stage1-Api-Differences.md) and [parity audit](Stage1-Parity-Audit.md). In particular, `recordServed()`, ID-based commands, immutable summaries, record accessors and split Waiter/Chef submission differ from the final diagram. Full literal diagram parity remains a separate reconciliation decision; no replacement diagram is created.
 
 `docs/uml/` holds the diagrams and their design notes. Runtime assets belong in `src/main/resources/`; asset processing tools belong in `scripts/`. Tests mirror production packages under `src/test/java/`.

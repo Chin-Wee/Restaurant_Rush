@@ -27,10 +27,10 @@ public class StageOneRunTest {
                 }
                 if (target != null) targetId = target.id();
             }
-            assertNull(game.submitWaiterDecision(new WaiterDecision(task, targetId)));
+            assertTrue(game.submitWaiterDecision(new WaiterDecision(task, targetId)).isSuccessful());
             Customer order = serveCustomers ? game.advanceableOrders().stream().findFirst().orElse(null) : null;
-            assertNull(game.submitChefDecision(order == null ? new ChefDecision(ChefTaskType.WAIT, null)
-                    : new ChefDecision(ChefTaskType.ADVANCE, order.id())));
+            assertTrue(game.submitChefDecision(order == null ? new ChefDecision(ChefTaskType.WAIT, null)
+                    : new ChefDecision(ChefTaskType.ADVANCE, order.id())).isSuccessful());
         }
         return game;
     }
