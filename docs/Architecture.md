@@ -1,31 +1,20 @@
-# Package boundaries
+# Stage 1 package boundaries
 
-`src/main/java/edu/ntu/sc2002/` is the Java package root. `App` only wires the application and selects its entry screen.
+`src/main/java/edu/ntu/sc2002/` is the source root.
 
-| Package | Responsibility and files |
-| --- | --- |
-| `ui` | JavaFX boundaries: `StartMenuScreen`, `RestaurantScreen`; optional `ui.console.ConsoleUI` |
-| `ui.scene` | `RestaurantScene`: room layers, sprites, frame interpolation and visual A* routes |
-| `ui.preview` | `RestaurantUiFixtures`, `ScenePreviewDriver`: sample snapshots and scripted/random scene testing |
-| `presentation` | Immutable `RestaurantUiState` and its nested commands/summaries; later `RestaurantUiAdapter` maps the engine to this contract |
-| `application` | Future `GameController`, `GameConfig`: turn sequencing and configuration |
-| `application.contract` | Future `GameSnapshot`, `TurnResolution`, `TurnPhase`, `WaiterDecision`, `ChefDecision`, `HostDecision`, `WaiterTaskType`, `ChefTaskType`, `HostTaskType` |
-| `domain` | Future `Restaurant`, `WaitingQueue`, `Table`, `Order`, `OrderStatus`, `Satisfaction`, `ScoreBoard`, `PaymentRecord`, `GameResult` |
-| `domain.customer` | Future `Customer`, `RegularCustomer`, `VIPCustomer`, `CriticCustomer`, `CustomerFactory`, `CustomerState`, `CustomerType` |
-| `domain.menu` | Future `Menu`, `MenuItem`, `Dish`, `ComboMeal` |
-| `domain.staff` | Future `Waiter`, `Chef`, `Cashier`, `Host` |
-| `domain.pricing` | Future `BillCalculator`, `HappyHour` |
+| Package | Classes | Responsibility |
+| --- | --- | --- |
+| root | `App` | Creates configured game and starts CLI |
+| `ui` | `ConsoleUI` | Displays controller snapshots, reads decisions, retries rejected choices; no game rules |
+| `control` | `GameController`, `GameConfig`, `TurnPhase`, `WaiterDecision`, `ChefDecision`, `WaiterTaskType`, `ChefTaskType`, `GameSnapshot`, `TurnResolution` | Owns the 18-turn sequence, arrivals, decision validation, and orchestration |
+| `entity` | `Restaurant`, `Customer`, `Satisfaction`, `Order`, `OrderStatus`, `WaitingQueue`, `Table`, `Menu`, `MenuItem`, `Waiter`, `Chef`, `Cashier`, `ScoreBoard`, `PaymentRecord`, `CustomerState`, `GameResult` | Restaurant state and Stage 1 business rules |
 
-Future packages are documented here, not populated with placeholder classes. Each listed future type becomes its own Java file when implemented. The UML is under `docs/uml/`; its contents describe intended logic, not implemented behavior.
+The checked-in class diagram describes Stage 3. Stage 1 implements the core subset with a concrete Regular `Customer` and simple concrete `MenuItem`. Stage 2/3 types such as VIP/Critic customers, Host, combos and Happy Hour stay absent.
 
 ## Dependency direction
 
-UI emits typed commands to a `Consumer`. The future presentation adapter translates IDs into controller decisions and maps immutable engine snapshots back into `RestaurantUiState`. It is the only bridge between the two models. Keep mutable domain entities out of UI snapshots. The adapter belongs to `presentation`, not `application`.
+`App → ConsoleUI → GameController → entity`. The UI passes typed decisions and displays immutable snapshots; it does not mutate entities or calculate eligibility, satisfaction, revenue, or outcomes. The controller validates a choice before applying it, then resolves Waiter before Chef, then eating/payment, waiting loss/abandonment, and end statistics. Money is integer cents in the model and formatted only at the UI boundary.
 
-`application` depends on `domain`. Neither imports JavaFX, `ui`, or `presentation`. Game rules and eligibility come from the engine; the screen only renders supplied choices and feedback. Domain money uses integer cents; formatting belongs to presentation/UI. Keep basic null, finite-number and payload-shape validation at the boundary, without duplicating satisfaction limits or Happy Hour duration rules.
+The assignment's six-step Stage 1 loop is the game-specific reference. Keep presentation mechanics out of it. If a visual client is added later, put JavaFX screens and scene movement in `ui`, retain the controller/entity boundary, and map immutable snapshots to the visual view model. Do not make animation completion advance an order or turn.
 
-`ui.scene` does not import preview or gameplay code. `ui.preview` drives visual routes through scene methods, and `App` explicitly attaches it. Completing a route never completes an order, seats a domain customer, takes payment or advances a turn. The existing production reference is Stardew Valley's room layers with a fixed HUD.
-
-Presentation `UiPhase` and `ResultSummary` intentionally differ from UML `TurnPhase` and `GameResult`. Before connecting the engine, reconcile the UML's combined `submitTurnChoices(...)` with the UI's Waiter-first acceptance and refreshed Chef choices. Do not implement those rules in the adapter.
-
-Assets stay under `src/main/resources/` (existing original packs may remain under `Assets/`). Asset tools stay under `scripts/`. Future tests mirror the package paths under `src/test/java/` so domain/application checks can run without JavaFX.
+`docs/uml/` holds the diagrams and their design notes. Runtime assets belong in `src/main/resources/`; asset processing tools belong in `scripts/`. Tests mirror production packages under `src/test/java/`.
