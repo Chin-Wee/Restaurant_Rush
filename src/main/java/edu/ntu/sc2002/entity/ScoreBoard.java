@@ -5,8 +5,9 @@ public final class ScoreBoard {
     private int revenueCents;
     private int paidSatisfactionTotal;
     private int paidCount;
+    public void recordServed() { servedCount++; }
     public void recordPayment(PaymentRecord record) {
-        servedCount++; paidCount++; revenueCents += record.lockedPriceCents(); paidSatisfactionTotal += record.satisfaction();
+        paidCount++; revenueCents += record.lockedPriceCents(); paidSatisfactionTotal += record.satisfaction();
     }
     public void recordDeparture() { unhappyDepartures++; }
     public int servedCount() { return servedCount; }
