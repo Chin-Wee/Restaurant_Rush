@@ -36,7 +36,7 @@ public final class StartMenuScreen {
     private static final double MENU_TRACK_START_POSITION_SECONDS = 19.8;
     private static final double TITLE_TRACK_CUE_SECONDS = 21.5;
     private static final double INITIAL_SCROLL_SPEED = 5.0;
-    private static final double FINAL_SCROLL_SPEED = 0.05;
+    private static final double FINAL_SCROLL_SPEED = 0.1;
     private static final double[] DEPTH_SPEED = {0.08, 0.2, 0.36, 0.55, 0.76, 1.0};
     private static final Color HARD_COLOR = Color.web("#C77B82");
     private static final Color MEDIUM_COLOR = Color.web("#527558");
@@ -262,7 +262,7 @@ public final class StartMenuScreen {
         centerText(title, height * 0.28 - title.getLayoutBounds().getHeight() / 2);
         buttonFontSize = Math.min(height * 0.09, width * 0.07);
         for (Button button : buttons) {
-            button.setFont(font(baseButtonFontSize(button) + (button.isHover() ? 2 : 0)));
+            button.setFont(font(baseButtonFontSize(button) + (button.isHover() ? 10 : 0)));
             if (root.getScene() != null) {
                 button.applyCss();
             }
