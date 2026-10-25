@@ -8,27 +8,30 @@ import java.util.Scanner;
 public final class ConsoleUI {
     private final Scanner input;
     private final GameController controller;
+    private final long seed;
 
-    public ConsoleUI() { this(new GameController()); }
-    public ConsoleUI(GameController controller) { this(new Scanner(System.in), controller); }
-    public ConsoleUI(Scanner input, GameController controller) { this.input = input; this.controller = controller; }
+    public ConsoleUI() { this(new Scanner(System.in), new GameController(), 2026); }
+    public ConsoleUI(GameController controller, long seed) { this(new Scanner(System.in), controller, seed); }
+    public ConsoleUI(Scanner input, GameController controller) { this(input, controller, 2026); }
+    private ConsoleUI(Scanner input, GameController controller, long seed) {
+        this.input = input; this.controller = controller; this.seed = seed;
+    }
 
     public void run() {
-        System.out.println("Restaurant Rush — Stage 1 (seed 2026)");
+        System.out.println("Restaurant Rush — Stage 1 (seed " + seed + ")");
         while (controller.phase() != TurnPhase.GAME_OVER) {
             controller.beginTurn();
             displayTurnStart(controller.snapshot());
-            for (String event : controller.processArrival()) System.out.println(event);
-            System.out.println("Available after arrival: " + controller.snapshot().availableStaffTasks());
+            var arrivals = controller.processArrival();
+            arrivals.forEach(System.out::println);
+            if (!arrivals.isEmpty()) {
+                System.out.println("Available after arrival: " + controller.snapshot().availableStaffTasks());
+            }
             WaiterDecision waiter = readWaiterDecision();
             String error;
             while ((error = controller.submitWaiterDecision(waiter)) != null) {
                 displayError(error); waiter = readWaiterDecision();
             }
-            Customer ordered = controller.restaurant().customers().stream()
-                    .filter(c -> c.order() != null && c.order().status() == OrderStatus.PLACED)
-                    .reduce((first, second) -> second).orElse(null);
-            if (ordered != null) System.out.println("Selected food: " + ordered.id() + " chose " + ordered.order().item().name() + ".");
             ChefDecision chef = readChefDecision();
             while ((error = controller.submitChefDecision(chef)) != null) {
                 displayError(error); chef = readChefDecision();
@@ -61,19 +64,17 @@ public final class ConsoleUI {
             int option = readNumber();
             if (option == 2) return new ChefDecision(ChefTaskType.WAIT, null);
             if (option != 1) { displayError("Choose 1 or 2."); continue; }
-            if (controller.advanceableOrders().isEmpty()) {
+            var advanceable = controller.snapshot().advanceableOrderOptions();
+            if (advanceable.isEmpty()) {
                 displayError("No order can be advanced."); continue;
             }
-            System.out.println("Advance which customer order? " + controller.advanceableOrders().stream()
-                    .map(c -> c.id() + " (" + c.order().item().name() + ")").toList());
+            System.out.println("Advance which customer order? " + advanceable);
             return new ChefDecision(ChefTaskType.ADVANCE, input.nextLine().trim());
         }
     }
 
     private String promptCustomer() {
-        System.out.println("Customer ID? " + controller.restaurant().customers().stream()
-                .filter(c -> c.state() != CustomerState.PAID && c.state() != CustomerState.LEFT)
-                .map(c -> c.id() + " (" + c.state() + ")").toList());
+        System.out.println("Customer ID? " + controller.snapshot().activeCustomerOptions());
         return input.nextLine().trim();
     }
 
@@ -94,17 +95,17 @@ public final class ConsoleUI {
     }
     public void displayError(String message) { System.out.println("Invalid choice: " + message + " Try again."); }
     public void displayTurnSummary(TurnResolution resolution) {
-        resolution.events().forEach(System.out::println);
-        ScoreBoard s = controller.scoreBoard();
+        resolution.events().stream().filter(event -> !event.startsWith("Arrival:")).forEach(System.out::println);
+        GameSnapshot s = controller.snapshot();
         System.out.printf("End turn %d: served %d | departures %d | revenue %s | average paid satisfaction %s | turns used %d%n",
                 resolution.turn(), s.servedCount(), s.unhappyDepartures(), GameController.money(s.revenueCents()),
-                Double.isNaN(s.averagePaidSatisfaction()) ? "N/A" : String.format("%.1f", s.averagePaidSatisfaction()), resolution.turn());
+                Double.isNaN(s.averagePaidSatisfaction()) ? "N/A" : String.format("%.1f", s.averagePaidSatisfaction()), s.turnsUsed());
     }
     public void displayEndGameResult(GameResult result) {
         System.out.printf("%n%s — served %d, departures %d, revenue %s, average paid satisfaction %s, turns used %d%n",
-                result, controller.scoreBoard().servedCount(), controller.scoreBoard().unhappyDepartures(),
-                GameController.money(controller.scoreBoard().revenueCents()),
-                Double.isNaN(controller.scoreBoard().averagePaidSatisfaction()) ? "N/A" : String.format("%.1f", controller.scoreBoard().averagePaidSatisfaction()),
-                controller.currentTurn());
+                result, controller.snapshot().servedCount(), controller.snapshot().unhappyDepartures(),
+                GameController.money(controller.snapshot().revenueCents()),
+                Double.isNaN(controller.snapshot().averagePaidSatisfaction()) ? "N/A" : String.format("%.1f", controller.snapshot().averagePaidSatisfaction()),
+                controller.snapshot().turnsUsed());
     }
 }

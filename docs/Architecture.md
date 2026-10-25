@@ -13,8 +13,10 @@ The checked-in class diagram describes Stage 3. Stage 1 implements the core subs
 
 ## Dependency direction
 
-`App → ConsoleUI → GameController → entity`. The UI passes typed decisions and displays immutable snapshots; it does not mutate entities or calculate eligibility, satisfaction, revenue, or outcomes. The controller validates a choice before applying it, then resolves Waiter before Chef, then eating/payment, waiting loss/abandonment, and end statistics. Money is integer cents in the model and formatted only at the UI boundary.
+`App → ConsoleUI → GameController → entity`. The UI passes typed decisions and displays immutable snapshots; it cannot access mutable entities or the ScoreBoard and does not calculate eligibility, satisfaction, revenue, or outcomes. The controller validates a choice before applying it, then resolves Waiter before Chef, then eating/payment, waiting loss/abandonment, and end statistics. Service count increments when an order is served; paid count, revenue, and recorded paid satisfaction increment at payment. Money is integer cents in the model and formatted only at the UI boundary.
 
 The assignment's six-step Stage 1 loop is the game-specific reference. Keep presentation mechanics out of it. If a visual client is added later, put JavaFX screens and scene movement in `ui`, retain the controller/entity boundary, and map immutable snapshots to the visual view model. Do not make animation completion advance an order or turn.
+
+The checked-in Stage 3 UML's `ScoreBoard` operations do not yet include `recordServed()`. Add it to the final diagram when reconciling the Stage 3 design: the task spec reports served and paid customers as distinct progress measures.
 
 `docs/uml/` holds the diagrams and their design notes. Runtime assets belong in `src/main/resources/`; asset processing tools belong in `scripts/`. Tests mirror production packages under `src/test/java/`.

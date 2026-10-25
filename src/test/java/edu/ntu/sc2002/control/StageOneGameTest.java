@@ -3,7 +3,6 @@ package edu.ntu.sc2002.control;
 import static org.junit.Assert.*;
 
 import edu.ntu.sc2002.entity.*;
-import java.util.List;
 import org.junit.Test;
 
 public class StageOneGameTest {
@@ -29,6 +28,7 @@ public class StageOneGameTest {
         assertEquals(OrderStatus.READY, game.restaurant().customers().get(0).order().status());
         begin(game); waiter(game, WaiterTaskType.SERVE, "C1"); chef(game, ChefTaskType.WAIT, null);
         assertEquals(76, game.restaurant().customers().get(0).satisfaction().getValue());
+        assertEquals(1, game.scoreBoard().servedCount());
         begin(game); waiter(game, WaiterTaskType.WAIT, null); chef(game, ChefTaskType.WAIT, null);
         assertEquals(CustomerState.READY_TO_PAY, game.restaurant().customers().get(0).state());
         assertEquals(0, game.scoreBoard().revenueCents());
@@ -47,12 +47,35 @@ public class StageOneGameTest {
         assertEquals(TurnPhase.MANAGER_CHOICES, game.phase());
     }
 
+    @Test public void waiterCanCompleteOnlyOneValidTaskPerTurn() {
+        GameController game = game(2026); begin(game);
+        waiter(game, WaiterTaskType.SEAT, "C1");
+        assertNotNull(game.submitWaiterDecision(new WaiterDecision(WaiterTaskType.TAKE_ORDER, "C1")));
+        assertNull(game.restaurant().customers().get(0).order());
+        assertEquals(CustomerState.SEATED, game.restaurant().customers().get(0).state());
+    }
+
     @Test public void victoryThresholdsAreAllRequired() {
         ScoreBoard win = new ScoreBoard();
-        for (int i = 0; i < 4; i++) win.recordPayment(new PaymentRecord("C" + i, 1200, 75));
+        for (int i = 0; i < 4; i++) {
+            win.recordServed(); win.recordPayment(new PaymentRecord("C" + i, 1200, 75));
+        }
         assertEquals(GameResult.VICTORY, win.evaluateResult());
         ScoreBoard lose = new ScoreBoard();
-        for (int i = 0; i < 4; i++) lose.recordPayment(new PaymentRecord("C" + i, 1100, 75));
+        for (int i = 0; i < 4; i++) {
+            lose.recordServed(); lose.recordPayment(new PaymentRecord("C" + i, 1100, 75));
+        }
         assertEquals(GameResult.DEFEAT, lose.evaluateResult());
+        ScoreBoard lowSatisfaction = new ScoreBoard();
+        for (int i = 0; i < 4; i++) {
+            lowSatisfaction.recordServed();
+            lowSatisfaction.recordPayment(new PaymentRecord("C" + i, 1500, 59));
+        }
+        assertEquals(GameResult.DEFEAT, lowSatisfaction.evaluateResult());
+        ScoreBoard tooFew = new ScoreBoard();
+        for (int i = 0; i < 3; i++) {
+            tooFew.recordServed(); tooFew.recordPayment(new PaymentRecord("C" + i, 1800, 90));
+        }
+        assertEquals(GameResult.DEFEAT, tooFew.evaluateResult());
     }
 }

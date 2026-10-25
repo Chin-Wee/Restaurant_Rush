@@ -11,6 +11,6 @@ public final class App {
     public static void main(String[] args) {
         long seed = args.length == 0 ? 2026 : Long.parseLong(args[0]);
         GameController game = new GameController(GameConfig.stageOne(seed), new Restaurant(), new ScoreBoard());
-        new ConsoleUI(game).run();
+        new ConsoleUI(game, seed).run();
     }
 }

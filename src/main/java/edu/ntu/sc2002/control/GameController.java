@@ -11,6 +11,7 @@ public final class GameController {
     private final ScoreBoard scoreBoard;
     private TurnPhase phase = TurnPhase.START_OF_TURN;
     private int currentTurn;
+    private boolean waiterTaskUsed;
     private final List<String> events = new ArrayList<>();
     private PaymentRecord paymentRecord;
     private List<String> departures = List.of();
@@ -21,8 +22,8 @@ public final class GameController {
     }
     public TurnPhase phase() { return phase; }
     public int currentTurn() { return currentTurn; }
-    public Restaurant restaurant() { return restaurant; }
-    public ScoreBoard scoreBoard() { return scoreBoard; }
+    Restaurant restaurant() { return restaurant; }
+    ScoreBoard scoreBoard() { return scoreBoard; }
     public GameResult result() { return phase == TurnPhase.GAME_OVER ? scoreBoard.evaluateResult() : null; }
 
     /** Starts the turn so the UI can show the previous state before arrival. */
@@ -30,6 +31,7 @@ public final class GameController {
         if (phase != TurnPhase.START_OF_TURN || currentTurn >= config.maxTurns()) throw new IllegalStateException("Cannot begin another turn");
         currentTurn++;
         events.clear(); departures = List.of(); paymentRecord = null;
+        waiterTaskUsed = false;
         phase = TurnPhase.START_OF_TURN;
     }
 
@@ -48,6 +50,7 @@ public final class GameController {
 
     public String submitWaiterDecision(WaiterDecision decision) {
         requirePhase(TurnPhase.MANAGER_CHOICES);
+        if (waiterTaskUsed) return "The Waiter has already acted this turn.";
         if (decision == null || decision.taskType() == null) return "Choose a Waiter task.";
         Customer target = findCustomer(decision.targetCustomerId());
         switch (decision.taskType()) {
@@ -67,13 +70,15 @@ public final class GameController {
                 if (target == null || target.order() == null) return "Choose a customer with an order.";
                 if (!target.order().canServe(currentTurn)) return "Order must have been READY before this turn.";
                 restaurant.waiter().serve(target, currentTurn);
+                scoreBoard.recordServed();
                 events.add("Waiter serves " + target.id() + "'s " + target.order().item().name() + ".");
             }
         }
+        waiterTaskUsed = true;
         return null;
     }
 
-    public List<Customer> advanceableOrders() {
+    List<Customer> advanceableOrders() {
         return restaurant.customers().stream().filter(c -> c.order() != null
                 && (c.order().status() == OrderStatus.PLACED || c.order().status() == OrderStatus.PREPARING)).toList();
     }
@@ -126,6 +131,11 @@ public final class GameController {
                 ? "Table " + t.tableId() + ": " + t.getOccupant().id() : "Table " + t.tableId() + ": Available").toList();
         List<String> customers = restaurant.customers().stream().map(c -> c.id() + " " + c.state()
                 + " satisfaction " + c.satisfaction().getValue() + (c.tableId() > 0 ? " Table " + c.tableId() : "")).toList();
+        List<String> activeOptions = restaurant.customers().stream()
+                .filter(c -> c.state() != CustomerState.PAID && c.state() != CustomerState.LEFT)
+                .map(c -> c.id() + " (" + c.state() + ")").toList();
+        List<String> advanceOptions = advanceableOrders().stream()
+                .map(c -> c.id() + " (" + c.order().item().name() + ")").toList();
         List<String> orders = restaurant.customers().stream().filter(c -> c.order() != null).map(c ->
                 c.id() + " " + c.order().item().name() + " " + c.order().status()
                         + (c.order().status() == OrderStatus.PREPARING ? " " + c.order().unitsDone()
@@ -143,7 +153,8 @@ public final class GameController {
         available.add("Chef WAIT");
         available.add("Cashier: automatic, oldest first, max one");
         return new GameSnapshot(currentTurn, phase, scoreBoard.revenueCents(), scoreBoard.averagePaidSatisfaction(),
-                waiting, tables, customers, orders, available);
+                scoreBoard.servedCount(), scoreBoard.unhappyDepartures(), currentTurn,
+                waiting, tables, customers, orders, activeOptions, advanceOptions, available);
     }
 
     public TurnResolution lastResolution() {
