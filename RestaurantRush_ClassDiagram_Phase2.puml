@@ -1,0 +1,464 @@
+@startuml RestaurantRush_ClassDiagram_Phase2
+title Restaurant Rush - Phase 2 Class Diagram
+
+' ---------------------------------------------------------------------------
+' Rendering
+' ---------------------------------------------------------------------------
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 32
+skinparam ranksep 50
+skinparam padding 4
+skinparam ArrowColor #3E4C59
+skinparam ArrowThickness 0.9
+skinparam classAttributeIconSize 0
+skinparam roundcorner 6
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 10
+
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #3E4C59
+  FontColor #1F2933
+  FontSize 12
+  AttributeFontSize 10
+  AttributeFontColor #3E4C59
+  StereotypeFontSize 9
+  StereotypeFontColor #52606D
+}
+
+skinparam enum {
+  BackgroundColor #F7F9FB
+  BorderColor #3E4C59
+  FontColor #1F2933
+  FontSize 11
+}
+
+skinparam class {
+  BackgroundColor<<boundary>> #EAF3FB
+  BorderColor<<boundary>> #4A7FA5
+  BackgroundColor<<control>> #FDF2E3
+  BorderColor<<control>> #A56A2A
+  BackgroundColor<<entity>> #EDF6EC
+  BorderColor<<entity>> #4E7B4A
+  BackgroundColor<<value>> #F5F0FA
+  BorderColor<<value>> #6B5B8E
+}
+
+hide circle
+hide empty members
+
+top to bottom direction
+
+' ---------------------------------------------------------------------------
+' Boundary and control
+' ---------------------------------------------------------------------------
+class ConsoleUI <<boundary>> {
+  - controller : GameController
+  + displayTurnStart(snapshot: GameSnapshot) : void
+  + promptManagerChoices() : void
+  + displayError(message: String) : void
+  + displayTurnSummary(resolution: TurnResolution) : void
+  + displayEndGameResult(result: GameResult) : void
+}
+
+class GameController <<control>> {
+  - currentTurn : int
+  - phase : TurnPhase
+  - restaurant : Restaurant
+  - config : GameConfig
+  - customerFactory : CustomerFactory
+  - scoreBoard : ScoreBoard
+  + beginTurn() : TurnResolution
+  + submitTurnChoices(waiterTask: WaiterDecision, chefTask: ChefDecision) : TurnResolution
+  + snapshot() : GameSnapshot
+  + result() : GameResult
+}
+
+' ---------------------------------------------------------------------------
+' Domain entities
+' ---------------------------------------------------------------------------
+class Restaurant <<entity>> {
+  - waitingQueue : WaitingQueue
+  - tables : List<Table>
+  - customers : List<Customer>
+  - menu : Menu
+  - waiter : Waiter
+  - chef : Chef
+  - cashier : Cashier
+  + registerArrival(customer: Customer) : void
+  + seat(customer: Customer) : Table
+  + oldestPaymentCandidate(turn: int) : Customer
+  + completePayment(customer: Customer) : PaymentRecord
+  + abandon(customer: Customer) : void
+}
+
+abstract class Customer <<entity>> {
+  - id : String
+  - arrivalOrdinal : int
+  - state : CustomerState
+  - satisfaction : Satisfaction
+  - order : Order
+  - readyToPayTurn : Integer
+  - choiceSeed : long
+  + chooseItem(menu: Menu) : MenuItem
+  {abstract} + satisfactionLossPerTurn() : int
+  {abstract} + applyCustomerDiscount(priceCents: int) : int
+  + applyWaitingLoss() : void
+  + recover(amount: int) : void
+  + isWaitingForTableOrFood() : boolean
+  + placeOrder(item: MenuItem, lockedPriceCents: int) : Order
+  + serveOrder(turn: int) : void
+  + finishEating(turn: int) : void
+  + canPay(turn: int) : boolean
+}
+
+' RegularCustomer: satisfaction loss 8 per turn; charges the undiscounted price.
+class RegularCustomer <<entity>> {
+  + satisfactionLossPerTurn() : int
+  + applyCustomerDiscount(priceCents: int) : int
+}
+
+' VIPCustomer: satisfaction loss 5 per turn; applies a 10% discount.
+class VIPCustomer <<entity>> {
+  + satisfactionLossPerTurn() : int
+  + applyCustomerDiscount(priceCents: int) : int
+}
+
+' CriticCustomer: satisfaction loss 12 per turn; no discount;
+' chooses the highest base-price menu item.
+class CriticCustomer <<entity>> {
+  + satisfactionLossPerTurn() : int
+  + applyCustomerDiscount(priceCents: int) : int
+  + chooseItem(menu: Menu) : MenuItem
+}
+
+class WaitingQueue <<entity>> {
+  - members : List<Customer>
+  + enqueue(customer: Customer) : void
+  + dequeue() : Customer
+  + getMembers() : List<Customer>
+  + isEmpty() : boolean
+}
+
+class Table <<entity>> {
+  - tableId : int
+  - occupant : Customer
+  + assign(customer: Customer) : void
+  + vacate() : void
+  + isOccupied() : boolean
+  + getOccupant() : Customer
+}
+
+class Order <<entity>> {
+  - item : MenuItem
+  - lockedPriceCents : int
+  - unitsDone : int
+  - status : OrderStatus
+  - readyTurn : Integer
+  - servedTurn : Integer
+  + advance(turn: int) : void
+  + canServe(turn: int) : boolean
+  + serve(turn: int) : void
+  + markPaid() : void
+  + cancel() : void
+}
+
+class Satisfaction <<entity>> {
+  - value : int
+  + getValue() : int
+  + deduct(points: int) : void
+  + add(points: int) : void
+}
+
+class Menu <<entity>> {
+  - items : List<MenuItem>
+  + addItem(item: MenuItem) : void
+  + getItems() : List<MenuItem>
+  + getItemByName(name: String) : MenuItem
+}
+
+abstract class MenuItem {
+  - name : String
+  - basePriceCents : int
+  - preparationUnits : int
+  + name() : String
+  + priceCents() : int
+  + preparationUnits() : int
+}
+
+class Dish <<entity>> {
+  + name() : String
+  + priceCents() : int
+  + preparationUnits() : int
+}
+
+' ---------------------------------------------------------------------------
+' Staff and supporting services
+' ---------------------------------------------------------------------------
+class Waiter {
+  + seat(restaurant: Restaurant, customer: Customer) : void
+  + takeOrder(customer: Customer, menu: Menu, calculator: BillCalculator, turn: int) : Order
+  + serve(customer: Customer, turn: int) : void
+}
+
+class Chef {
+  + advance(customer: Customer, turn: int) : void
+}
+
+class Cashier {
+  + collectOldest(restaurant: Restaurant, turn: int) : PaymentRecord
+}
+
+' BillCalculator delegates the customer-specific discount to
+' Customer.applyCustomerDiscount().
+class BillCalculator {
+  + quote(item: MenuItem, customer: Customer, turn: int) : int
+}
+
+class ScoreBoard {
+  - servedCount : int
+  - unhappyDepartures : int
+  - revenueCents : int
+  - paidSatisfactionTotal : int
+  - paidCount : int
+  + recordPayment(record: PaymentRecord) : void
+  + recordDeparture() : void
+  + getAveragePaidSatisfaction() : double
+  + evaluateResult() : GameResult
+}
+
+' CustomerFactory selects the concrete Customer subtype from CustomerType.
+class CustomerFactory {
+  + createCustomer(type: CustomerType, id: String, ordinal: int, seed: long) : Customer
+}
+
+class GameConfig {
+  - maxTurns : int
+  - numTables : int
+  - arrivalSchedule : List<Integer>
+}
+
+' ---------------------------------------------------------------------------
+' Value objects
+' ---------------------------------------------------------------------------
+class GameSnapshot <<value>> {
+  - turn : int
+  - phase : TurnPhase
+  - revenueCents : int
+  - averagePaidSatisfaction : Double
+  - waitingQueue : List<Customer>
+  - tables : List<Table>
+  + getTurn() : int
+  + getPhase() : TurnPhase
+  + getRevenueCents() : int
+  + getAveragePaidSatisfaction() : Double
+  + getWaitingQueue() : List<Customer>
+  + getTables() : List<Table>
+}
+
+class TurnResolution <<value>> {
+  - turn : int
+  - events : List<String>
+  - newArrival : Customer
+  - departingCustomers : List<Customer>
+  - paymentRecord : PaymentRecord
+  - isSuccessful : boolean
+  - errorMessage : String
+  + getTurn() : int
+  + getEvents() : List<String>
+  + getNewArrival() : Customer
+  + getDepartingCustomers() : List<Customer>
+  + getPaymentRecord() : PaymentRecord
+  + isSuccessful() : boolean
+  + getErrorMessage() : String
+}
+
+class PaymentRecord <<value>> {
+  - customerId : String
+  - lockedPriceCents : int
+  - satisfaction : int
+  + getCustomerId() : String
+  + getLockedPriceCents() : int
+  + getSatisfaction() : int
+}
+
+class WaiterDecision <<value>> {
+  - taskType : WaiterTaskType
+  - targetCustomer : Customer
+  + getTaskType() : WaiterTaskType
+  + getTargetCustomer() : Customer
+}
+
+class ChefDecision <<value>> {
+  - taskType : ChefTaskType
+  - targetCustomer : Customer
+  + getTaskType() : ChefTaskType
+  + getTargetCustomer() : Customer
+}
+
+' ---------------------------------------------------------------------------
+' Enumerations
+' ---------------------------------------------------------------------------
+enum CustomerState {
+  WAITING
+  SEATED
+  EATING
+  READY_TO_PAY
+  PAID
+  LEFT
+}
+
+enum CustomerType {
+  REGULAR
+  VIP
+  CRITIC
+}
+
+enum OrderStatus {
+  PLACED
+  PREPARING
+  READY
+  SERVED
+  PAID
+  CANCELLED
+}
+
+enum TurnPhase {
+  START_OF_TURN
+  MANAGER_CHOICES
+  RESOLVING
+  GAME_OVER
+}
+
+enum GameResult {
+  VICTORY
+  DEFEAT
+}
+
+enum WaiterTaskType {
+  SEAT
+  TAKE_ORDER
+  SERVE
+  WAIT
+}
+
+enum ChefTaskType {
+  ADVANCE
+  WAIT
+}
+
+' ---------------------------------------------------------------------------
+' Generalization
+' ---------------------------------------------------------------------------
+Customer <|-- RegularCustomer
+Customer <|-- VIPCustomer
+Customer <|-- CriticCustomer
+MenuItem <|-- Dish
+
+' ---------------------------------------------------------------------------
+' Composition and aggregation
+' ---------------------------------------------------------------------------
+Restaurant *-down- "1" WaitingQueue
+Restaurant *-down- "0..*" Table
+Customer *-down- "1" Satisfaction
+WaitingQueue o-right- "0..*" Customer : members
+Menu o-down- "1..*" MenuItem : items
+
+' ---------------------------------------------------------------------------
+' Direct associations
+' ---------------------------------------------------------------------------
+ConsoleUI -down-> GameController : controller
+GameController -down-> Restaurant : restaurant
+GameController -down-> ScoreBoard : scoreBoard
+GameController -right-> GameConfig
+GameController -down-> CustomerFactory : customerFactory
+GameController -down-> TurnPhase : phase
+Restaurant -down-> Menu
+Restaurant -down-> "0..*" Customer : customers
+Restaurant -down-> Waiter
+Restaurant -down-> Chef
+Restaurant -down-> Cashier
+Table -right-> "0..1" Customer
+Customer -down-> "0..1" Order : order
+Customer -down-> CustomerState
+Order -down-> MenuItem : item
+Order -down-> OrderStatus : status
+WaiterDecision -right-> WaiterTaskType
+ChefDecision -right-> ChefTaskType
+TurnResolution -down-> Customer : newArrival / departing
+TurnResolution -down-> PaymentRecord
+
+' ---------------------------------------------------------------------------
+' Dependencies
+' ---------------------------------------------------------------------------
+ConsoleUI .down.> GameSnapshot
+ConsoleUI .down.> TurnResolution
+ConsoleUI .down.> GameResult
+GameController .left.> GameSnapshot
+GameController .down.> WaiterDecision
+GameController .down.> ChefDecision
+GameController .down.> TurnResolution
+GameController .right.> GameResult
+Waiter .up.> Restaurant
+Waiter .left.> Customer
+Waiter .down.> Menu
+Waiter .down.> BillCalculator
+Waiter .down.> Order
+Chef .left.> Customer
+Cashier .up.> Restaurant
+Cashier .right.> PaymentRecord
+ScoreBoard .down.> PaymentRecord
+ScoreBoard .up.> GameResult
+CustomerFactory .down.> Customer
+CustomerFactory .right.> CustomerType
+CustomerFactory .down.> VIPCustomer
+CustomerFactory .down.> CriticCustomer
+BillCalculator .up.> Customer
+BillCalculator .down.> MenuItem
+WaiterDecision .down.> Customer
+ChefDecision .down.> Customer
+Restaurant .down.> PaymentRecord
+Customer .down.> Menu
+Customer .down.> MenuItem
+
+' ---------------------------------------------------------------------------
+' Invisible layout guides - these do not appear in the rendered diagram.
+' They keep each horizontal band ordered and prevent long edge detours.
+' ---------------------------------------------------------------------------
+ConsoleUI -[hidden]down- GameController
+GameSnapshot -[hidden]right- GameController
+GameController -[hidden]right- GameConfig
+GameConfig -[hidden]right- GameResult
+
+TurnPhase -[hidden]right- Restaurant
+Restaurant -[hidden]right- CustomerFactory
+CustomerFactory -[hidden]right- CustomerType
+CustomerType -[hidden]right- WaiterDecision
+WaiterTaskType -[hidden]right- ChefDecision
+ChefTaskType -[hidden]right- TurnResolution
+TurnResolution -[hidden]right- ScoreBoard
+
+CustomerFactory -[hidden]down- Customer
+WaiterDecision -[hidden]down- Waiter
+ChefDecision -[hidden]down- Chef
+TurnResolution -[hidden]down- PaymentRecord
+
+WaitingQueue -[hidden]right- Table
+Customer -[hidden]right- Waiter
+Waiter -[hidden]right- Chef
+Chef -[hidden]right- Cashier
+
+Customer -[hidden]down- RegularCustomer
+Satisfaction -[hidden]right- Menu
+Menu -[hidden]right- RegularCustomer
+RegularCustomer -[hidden]right- VIPCustomer
+VIPCustomer -[hidden]right- CriticCustomer
+CriticCustomer -[hidden]right- Order
+Order -[hidden]right- CustomerState
+CustomerState -[hidden]right- BillCalculator
+
+MenuItem -[hidden]right- OrderStatus
+
+@enduml
