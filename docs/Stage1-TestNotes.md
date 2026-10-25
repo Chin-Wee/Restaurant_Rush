@@ -41,10 +41,16 @@ The Victory script uses this deterministic policy: serve the oldest already-read
 
 ## Assignment Pasta example
 
-`StageOneGameTest.reproducesPastaExampleAndDefersPayment` uses game seed 2, giving C1 choice seed 3 and Pasta. Turn 1: seat C1, satisfaction 92. Turn 2: take order plus first Chef unit, 84. Turn 3: second unit becomes READY, 76. Turn 4: serve, served count increments, no loss. Turn 5: READY_TO_PAY, still no payment. Turn 6: $18.00 payment and satisfaction 76 recorded, table and inverse customer table ID cleared.
+`StageOneGameTest.reproducesPastaExampleAndDefersPayment` uses game seed 2, giving C1 choice seed 3 and Pasta. Turn 1: seat C1, satisfaction 92. Turn 2: take order plus first Chef unit, 84. Turn 3: second unit becomes READY, 76. Turn 4: serve, served count increments, no loss. Turn 5: READY_TO_PAY, still no payment. Turn 6: $18.00 payment and satisfaction 76 recorded, table released; snapshot locations are derived solely from Table.occupant.
 
 Food choice for every customer uses Java Random with seed = game seed + arrival ordinal, selecting uniformly by index from `[Salad, Burger, Pasta]`. This formula and menu order are part of the reproducibility contract. No food is chosen by manager input.
 
 ## UML audit
 
-After compiling, run `python3 scripts/audit_stage1_api.py --check`. It confirms the [API inventory](Stage1-Api-Differences.md) is current against the retained Stage 3 diagram and compiled Stage 1 classes. It does not claim zero UML differences. See [the full trace and findings](Stage1-Parity-Audit.md) for their disposition and the outstanding GitHub tag publication check.
+After compiling, run `python3 scripts/audit_stage1_api.py --check`. It confirms the [API inventory](Stage1-Api-Differences.md) is current against the retained Stage 3 diagram and compiled Stage 1 classes. It does not claim zero UML differences. See [the full trace and findings](Stage1-Parity-Audit.md) for their disposition and the GitHub tag publication verification.
+
+## Cashier ordering and Stage 1 purity
+
+The adopted meaning of oldest is earliest arrival ordinal among eligible customers, even if a later arrival became READY_TO_PAY earlier. The assignment does not define that term more precisely. StageOneParityTest.cashierUsesArrivalPriorityEvenWhenLaterArrivalWasReadyEarlier constructs both eligible customers to distinguish these policies; the existing same-readiness test verifies the tie case. These are isolated eligibility fixtures; normal controller runs still pay one customer at most per turn.
+
+Stage 1 has no Customer.recover or applyCustomerDiscount hook. Full-price billing uses item.priceCents directly. Customer has no table ID; Table.occupant owns seating, and the snapshot queries Restaurant.tableFor. The suite contains 23 tests after this focused cleanup.

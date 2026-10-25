@@ -14,7 +14,7 @@ OUTPUT = ROOT / "docs/Stage1-Api-Differences.md"
 LATER = {"RegularCustomer", "VIPCustomer", "CriticCustomer", "Dish", "ComboMeal", "Host",
          "BillCalculator", "HappyHour", "CustomerFactory", "CustomerType", "HostDecision", "HostTaskType"}
 LATER_MEMBERS = {"customerFactory", "happyHour", "host", "isHappyHourActive", "happyHourRemainingTurns",
-                 "getHappyHourRemainingTurns"}
+                 "getHappyHourRemainingTurns", "recover", "applyCustomerDiscount"}
 
 def text(value):
     return html.unescape(re.sub(r"<[^>]+>", " ", value or "")).strip()

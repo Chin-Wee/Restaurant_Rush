@@ -5,7 +5,7 @@ public final class Waiter {
 
     public Order takeOrder(Customer customer, Menu menu, int turn) {
         MenuItem item = customer.chooseItem(menu);
-        return customer.placeOrder(item, customer.applyCustomerDiscount(item.priceCents()));
+        return customer.placeOrder(item, item.priceCents());
     }
 
     public void serve(Customer customer, int turn) { customer.serveOrder(turn); }

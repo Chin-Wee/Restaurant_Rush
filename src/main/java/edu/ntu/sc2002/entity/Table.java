@@ -16,7 +16,7 @@ public final class Table {
     public void assign(Customer customer) {
         Objects.requireNonNull(customer);
         if (isOccupied()) throw new IllegalStateException("Table is occupied");
-        customer.seat(tableId);
+        customer.markSeated();
         occupant = customer;
     }
 

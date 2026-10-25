@@ -79,7 +79,7 @@ public class StageOneParityTest {
 
     @Test public void readyDishCannotBeServedUntilNextTurn() {
         Customer customer = new Customer("C1", 1, 0);
-        customer.seat(1);
+        new Table(1).assign(customer);
         Order order = customer.placeOrder(new MenuItem("Salad", 900, 1), 900);
         order.advance(2);
         assertFalse(order.canServe(2));
@@ -112,7 +112,7 @@ public class StageOneParityTest {
         }
         begin(game); waitTurn(game);
         assertEquals(CustomerState.PAID, old.state());
-        assertEquals(-1, old.tableId());
+        assertNull(restaurant.tableFor(old));
         assertEquals(CustomerState.READY_TO_PAY, young.state());
         assertEquals(1, game.scoreBoard().paidCount());
         assertEquals(900, game.scoreBoard().revenueCents());
@@ -148,17 +148,42 @@ public class StageOneParityTest {
         Customer customer = new Customer("C1", 1, 0);
         MenuItem salad = new MenuItem("Salad", 900, 1);
         assertThrows(IllegalStateException.class, () -> customer.placeOrder(salad, 900));
-        customer.seat(1);
+        Restaurant restaurant = new Restaurant();
+        restaurant.registerArrival(customer);
+        restaurant.seat(customer);
         Order order = customer.placeOrder(salad, 900);
         assertThrows(IllegalStateException.class, () -> customer.placeOrder(salad, 900));
         assertSame(order, customer.order());
         customer.satisfaction().deduct(100);
-        customer.leave();
-        assertThrows(IllegalStateException.class, () -> customer.seat(2));
+        restaurant.abandon(customer);
+        assertNull(restaurant.tableFor(customer));
         assertThrows(IllegalStateException.class, () -> customer.serveOrder(3));
         Table free = new Table(2);
         assertThrows(IllegalStateException.class, () -> free.assign(customer));
         assertFalse(free.isOccupied());
+    }
+
+    @Test public void cashierUsesArrivalPriorityEvenWhenLaterArrivalWasReadyEarlier() {
+        // Construct two eligible customers to distinguish arrival age from payment-wait age.
+        Restaurant restaurant = new Restaurant();
+        Customer olderArrival = new Customer("older-arrival", 1, 0);
+        Customer laterArrival = new Customer("later-arrival", 2, 0);
+        for (Customer customer : List.of(laterArrival, olderArrival)) {
+            restaurant.registerArrival(customer);
+            restaurant.seat(customer);
+            customer.placeOrder(new MenuItem("Salad", 900, 1), 900);
+        }
+        laterArrival.order().advance(6);
+        laterArrival.serveOrder(7);
+        laterArrival.finishEating(8);
+        olderArrival.order().advance(9);
+        olderArrival.serveOrder(10);
+        olderArrival.finishEating(11);
+        assertEquals(Integer.valueOf(8), laterArrival.readyToPayTurn());
+        assertEquals(Integer.valueOf(11), olderArrival.readyToPayTurn());
+        assertEquals("older-arrival", restaurant.cashier().collectOldest(restaurant, 12).customerId());
+        assertTrue(laterArrival.canPay(12));
+        assertEquals("later-arrival", restaurant.cashier().collectOldest(restaurant, 13).customerId());
     }
 
     @Test public void satisfactionBoundsAndCustomerChoicesAreDeterministic() {
