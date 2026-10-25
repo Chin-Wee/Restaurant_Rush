@@ -21,7 +21,7 @@ The assignment requires Stage 1 behavior and prohibits Stage 2/3 features at thi
 | G1 | Repeated `beginTurn()` calls before arrival could skip turn numbers and scheduled arrivals; arrival could also run at turn zero. `lastResolution()` accepted an unresolved start phase. | 2.1, 3.2: six scheduled arrivals and complete turns | Fixed with an active-turn guard. `turnProtocolCannotSkipArrivalsOrResolveBeforeWaiter` rejects each bad sequence without changing the turn. |
 | G2 | Chef submission could resolve a turn before any Waiter decision. | 3.2: Waiter acts before Chef; explicit Wait is available | Fixed: Chef returns unsuccessful feedback until a valid Waiter action or Wait has been accepted. Same test verifies rejection, then valid retry. |
 | G3 | Snapshots continued offering Waiter tasks after the Waiter had acted, and tasks remained visible after game over. | 3.1 and 3.4: available tasks and one task per turn | Fixed: availability follows protocol and task consumption. `availabilityFollowsAcceptedTaskAndInvalidRetryDoesNotMutate` verifies both. |
-| G4 | Payment vacated the table but left the paid customer's old `tableId` in the displayed state. | 3.2 step 4: payment frees the table | Fixed: payment clears the inverse customer assignment too. Cashier timing test checks table occupancy, paid state, ID and revenue. |
+| G4 | Payment vacated the table but left the paid customer's old `tableId` in the displayed state. | 3.2 step 4: payment frees the table | Fixed: the duplicate Customer.tableId was subsequently removed entirely. Table.occupant is now the sole authority; snapshots query Restaurant.tableFor. Cashier timing checks occupancy, paid state and revenue. |
 | G5 | Public customer methods could overwrite an order, seat a terminal customer, or mark an unready customer paid. `Table.assign()` could set its occupant before a failed customer transition; `vacate()` allowed early release. | 3.4: no second order, no premature payment/eating; occupied until payment/leave | Fixed domain guards and mutation ordering. `terminalCustomerAndDuplicateOrderCannotBeReactivated` and the manager-priority test cover these failures. |
 | G6 | Menu callers could mutate the backing list, removing the required dishes without using a domain operation. | 2.1: base menu always available; encapsulation | Fixed: menu collection is read-only to callers. Snapshot/menu immutability check verifies it. |
 | G7 | Negative satisfaction adjustments and integer overflow could escape the 0–100 bounds. | 3.2 step 5; satisfaction invariant | Fixed: reject negative adjustments and clamp with wide arithmetic. `satisfactionBoundsAndCustomerChoicesAreDeterministic` checks extremes. |
@@ -29,7 +29,7 @@ The assignment requires Stage 1 behavior and prohibits Stage 2/3 features at thi
 | G9 | The customer's selected dish was reliably announced only in the final summary, after the Chef prompt; summary rendering depended on an `Arrival:` string prefix. | 2.2, 3.2: show food when ordered; same-turn Chef choice | Fixed: immutable command results carry events and errors; UI displays each new event once, including food before the Chef prompt. CLI replay checks ordering and no duplicate arrival/order announcements. |
 | G10 | EOF and an invalid seed produced uncaught exceptions. | Learning outcome: robust input handling; 3.4: explain invalid input | Fixed: invalid seed gives usage feedback; EOF reports interruption without inventing an ending. CLI tests cover invalid numbers/targets, EOF and seed. |
 | G11 | README still claimed the branch had a blank JavaFX screen and no engine. The general seed formula and exact CLI replays were not supplied. | 2.2, 4.1: documented reproducibility and runnable stage | Fixed README and test notes. Checked-in Victory/Defeat stdin files exercise the actual CLI. |
-| P1 | The local `stage-1` tag was not published on `origin` when checked: `git ls-remote --tags origin refs/tags/stage-1 'refs/tags/stage-1^{}'` returned no entries. | 4.1 and 5: runnable stage tag on GitHub | **Publication gap remains.** Local source/tag validation does not prove remote publication. This review does not publish repository refs. |
+| P1 | The local `stage-1` tag was not published on `origin` when checked: `git ls-remote --tags origin refs/tags/stage-1 'refs/tags/stage-1^{}'` returned no entries. | 4.1 and 5: runnable stage tag on GitHub | Release gate for this revision: publish the tested feat/stage-1 commit and annotated stage-1 tag together, then verify the remote peeled tag equals that commit. See the README release link; local build success alone is not publication evidence. |
 
 No live Stage 2/3 features were found in production source. Earlier fixes for one Waiter action, separate served/paid counts and a snapshot-only UI are retained and covered by regression checks.
 
@@ -43,7 +43,7 @@ The [API inventory](Stage1-Api-Differences.md) marks every field and operation, 
 | `TurnResolution` | Customer references in `newArrival`/departures become immutable IDs; code adds final result and record accessors replace `get...` methods. | Retained to keep mutable entities outside the UI boundary. Success/error fields and arrival identity are now explicit. |
 | `GameSnapshot` | Code adds customers, orders, choices and statistics; uses immutable string summaries and record accessors; Happy Hour fields are absent. | Required Stage 1 display data and safe boundary. Boxed `Double` now matches the diagram; absent paid average is null and displays N/A. |
 | `WaiterDecision`, `ChefDecision` | Diagram targets live `Customer` objects and uses bean getters; code targets customer IDs and uses record accessors. | Retained for UI separation. These are API differences, not claimed exact matches. |
-| `Customer` | Final UML is abstract and has subclasses; Stage 1 has one concrete Regular customer and an extra inverse table assignment. | Intentional Stage 1 specialization. Concrete regular loss/full-price operations, waiting predicate and locked-price order creation now match shared UML operations. |
+| `Customer` | Final UML is abstract and has subclasses; Stage 1 has one concrete Regular customer. It stores no table ID; Table.occupant owns seating. | Intentional Stage 1 specialization. Regular loss, waiting predicate and locked-price order creation match shared operations. Recovery and discount dispatch are deliberately absent until Stage 3 and Stage 2 respectively; the inventory marks them as staged exclusions. |
 | `MenuItem` | Final UML is abstract with `Dish`/`ComboMeal`; Stage 1 is a concrete record. | Intentional simple Stage 1 item. The three required items are not replaced by later-stage menu features. |
 | `Waiter.takeOrder` | Diagram has a `BillCalculator` parameter; Stage 1 uses the Regular customer's full item price. | Literal difference retained; no pricing-policy object or discount feature is added solely for the final diagram. |
 | `Restaurant.completePayment` | Baseline returned void despite UML's `PaymentRecord` return. | Corrected: the aggregate now creates the payment record, marks customer/order paid and releases the table; Cashier delegates to it. |
@@ -113,19 +113,31 @@ Each row names an actual production type. The linked files and exhaustive API in
 | Manager controls priority; same-turn newly ordered Chef work (3.2, 4.1) | PASS: non-oldest target selected explicitly; first order left untouched; Chef can choose an order placed that turn |
 | READY/SERVED timing (3.2) | PASS: ready turn must be strictly earlier; ready-on-this-turn service rejected without mutation |
 | Full eating turn, next-turn payment, one payment, oldest first (3.2) | PASS: exact Pasta example plus two eligible-customer scenario |
-| Waiting loss, abandonment and table lifecycle (3.2, 3.4) | PASS: regular -8 only while waiting/unserved; floor zero; unfinished order cancelled; queue/table removed; paid inverse ID cleared |
+| Waiting loss, abandonment and table lifecycle (3.2, 3.4) | PASS: regular -8 only while waiting/unserved; floor zero; unfinished order cancelled; queue/table removed; customer location derived solely from current table occupancy |
 | Invalid input retries and no consumed task (3.4) | PASS: bad numeric input, wrong target, no table, second order, bad Chef order and role repetition checked |
 | Unpaid/abandoned orders excluded from revenue (3.4) | PASS: all-WAIT/abandonment and deferred Pasta payment checks |
 | Turn-16 arrival cannot pay / at most five paid (3.4) | PASS: C6 fastest-action scenario cannot pay by 18. Bound: even a one-unit dish requires seat 16 → order/prepare 17 → serve 18 → finish eating 19 → pay 20. Earlier five arrivals are the only possible payers. |
 | End statistics and recorded paid average (3.5) | PASS: served count is separate from paid count; all required metrics displayed; no paid average renders N/A |
-| Stage 1 only, independent runnable local tag, both endings and notes (4.1) | PASS locally: production source has no later-stage types/features; build + two actual CLI replay inputs; tag follows corrected commit. Remote publication remains P1. |
+| Stage 1 only, independent runnable local tag, both endings and notes (4.1) | PASS locally: production source has no later-stage types/features; build + two actual CLI replay inputs; tag follows the tested release commit. Remote publication is verified by the P1 release gate. |
 | Final class diagram matches final Stage 3 code (5) | NOT A STAGE 1 CLAIM: supplied diagram retained; all literal Stage 1 differences are documented in the exhaustive inventory, as requested. |
 
 The Word brief also requests later stages, report/video/declarations and stage comparison evidence for the full group submission. Those are not implemented by this Stage 1 audit.
 
+## Focused cleanup after the 8517328 review
+
+| Request | Action |
+| --- | --- |
+| A1: publish Stage 1 | Release the tested feature branch and annotated stage-1 tag together, and compare the remote peeled tag to the release commit. |
+| A2: defer recovery | Removed Customer.recover; Happy Hour will introduce it in Stage 3. Satisfaction retains its existing bounded value operations. |
+| U1: one seating authority | Removed Customer.tableId, its accessor and seat(int). Table invokes package-private markSeated(); Restaurant.tableFor derives occupancy for displays. |
+| A3: distinguish payment priorities | Retained earliest-arrival semantics, documented the ambiguity and added a different-readiness ordering test. This does not reinterpret or change existing runs. |
+| Optional discount cleanup | Removed the identity applyCustomerDiscount method; Stage 1 bills the item price directly, leaving Stage 2 to introduce polymorphic discounts. |
+
+The final supplied UML is unchanged. The removed future-facing customer operations are marked staged exclusions in the declaration audit, rather than being reintroduced to make a final Stage 3 API appear in Stage 1.
+
 ## Reproduce
 
-Verified results for this revision: **22 tests, zero failures/errors/skips**. Both separately launched Java CLI processes replayed all 18 turns and six arrivals. Victory finished served 5 / paid 4 / departures 0 / $51.00 / paid average 78.0. Defeat finished served 0 / paid 0 / departures 2 / $0.00 / N/A. The compiled declaration inventory check passed: 135 matching declarations, 26 literal API differences, 40 later-stage declarations excluded and 141 code additions (including constructors, accessors and private helpers).
+Verified results for this revision: **23 tests, zero failures/errors/skips**. Both separately launched Java CLI processes replayed all 18 turns and six arrivals. Victory finished served 5 / paid 4 / departures 0 / $51.00 / paid average 78.0. Defeat finished served 0 / paid 0 / departures 2 / $0.00 / N/A. The compiled declaration inventory check passed: 133 matching declarations, 26 literal API differences, 42 later-stage declarations excluded and 140 code additions (including constructors, accessors and private helpers).
 
 Run `./mvnw -q clean package`, then `python3 scripts/audit_stage1_api.py --check`. The first command executes the behavior and CLI tests; the second checks that the declaration inventory still matches the unchanged diagram and compiled code.
 

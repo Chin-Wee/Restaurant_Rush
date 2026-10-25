@@ -69,7 +69,8 @@ public final class GameController {
             case SEAT -> {
                 if (target == null || !restaurant.waitingQueue().getMembers().contains(target)) return response("Choose a customer in the queue.");
                 if (restaurant.tables().stream().noneMatch(t -> !t.isOccupied())) return response("No table is free.");
-                restaurant.waiter().seat(restaurant, target); events.add("Waiter seats " + target.id() + " at Table " + target.tableId() + ".");
+                restaurant.waiter().seat(restaurant, target);
+                events.add("Waiter seats " + target.id() + " at Table " + restaurant.tableFor(target).tableId() + ".");
             }
             case TAKE_ORDER -> {
                 if (target == null || target.state() != CustomerState.SEATED) return response("Choose a seated customer.");
@@ -142,8 +143,11 @@ public final class GameController {
         List<String> waiting = restaurant.waitingQueue().getMembers().stream().map(Customer::id).toList();
         List<String> tables = restaurant.tables().stream().map(t -> t.isOccupied()
                 ? "Table " + t.tableId() + ": " + t.getOccupant().id() : "Table " + t.tableId() + ": Available").toList();
-        List<String> customers = restaurant.customers().stream().map(c -> c.id() + " " + c.state()
-                + " satisfaction " + c.satisfaction().getValue() + (c.tableId() > 0 ? " Table " + c.tableId() : "")).toList();
+        List<String> customers = restaurant.customers().stream().map(c -> {
+            Table table = restaurant.tableFor(c);
+            return c.id() + " " + c.state() + " satisfaction " + c.satisfaction().getValue()
+                    + (table == null ? "" : " Table " + table.tableId());
+        }).toList();
         List<String> activeOptions = restaurant.customers().stream()
                 .filter(c -> c.state() != CustomerState.PAID && c.state() != CustomerState.LEFT)
                 .map(c -> c.id() + " (" + c.state() + ")").toList();

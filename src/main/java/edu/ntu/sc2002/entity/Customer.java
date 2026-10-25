@@ -12,7 +12,6 @@ public final class Customer {
     private CustomerState state = CustomerState.WAITING;
     private Order order;
     private Integer readyToPayTurn;
-    private int tableId = -1;
 
     public Customer(String id, int arrivalOrdinal, long choiceSeed) {
         if (id == null || id.isBlank() || arrivalOrdinal < 1) throw new IllegalArgumentException("Invalid customer identity");
@@ -27,7 +26,6 @@ public final class Customer {
     public CustomerState state() { return state; }
     public Order order() { return order; }
     public Integer readyToPayTurn() { return readyToPayTurn; }
-    public int tableId() { return tableId; }
 
     public MenuItem chooseItem(Menu menu) {
         var items = Objects.requireNonNull(menu).getItems();
@@ -36,15 +34,12 @@ public final class Customer {
     }
 
     public int satisfactionLossPerTurn() { return 8; }
-    public int applyCustomerDiscount(int priceCents) { return priceCents; }
     public boolean isWaitingForTableOrFood() { return state == CustomerState.WAITING || state == CustomerState.SEATED; }
     public void applyWaitingLoss() { if (isWaitingForTableOrFood()) satisfaction.deduct(satisfactionLossPerTurn()); }
-    public void recover(int amount) { if (isWaitingForTableOrFood()) satisfaction.add(amount); }
 
-    public void seat(int table) {
-        if (state != CustomerState.WAITING || table < 1) throw new IllegalStateException("Customer cannot be seated");
+    void markSeated() {
+        if (state != CustomerState.WAITING) throw new IllegalStateException("Customer cannot be seated");
         state = CustomerState.SEATED;
-        tableId = table;
     }
 
     public Order placeOrder(MenuItem item, int lockedPriceCents) {
@@ -73,13 +68,11 @@ public final class Customer {
         if (state != CustomerState.READY_TO_PAY) throw new IllegalStateException("Customer is not ready to pay");
         order.markPaid();
         state = CustomerState.PAID;
-        tableId = -1;
     }
 
     public void leave() {
         if (!isWaitingForTableOrFood() || satisfaction.getValue() != 0) throw new IllegalStateException("Customer is not abandoning");
         if (order != null) order.cancel();
         state = CustomerState.LEFT;
-        tableId = -1;
     }
 }

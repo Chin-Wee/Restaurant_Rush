@@ -147,15 +147,14 @@ Declaration difference: a concrete Stage 1 type replaces the final abstraction; 
 | MATCH | <code>- choiceSeed: long</code> | <code>private final long choiceSeed</code> |
 | MATCH | <code>+ chooseItem(menu: Menu): MenuItem</code> | <code>public MenuItem chooseItem(Menu)</code> |
 | MATCH | <code>+ satisfactionLossPerTurn(): int (abstract)</code> | <code>public int satisfactionLossPerTurn()</code> |
-| MATCH | <code>+ applyCustomerDiscount(priceCents: int): int (abstract)</code> | <code>public int applyCustomerDiscount(int)</code> |
+| STAGE 2/3 | <code>+ applyCustomerDiscount(priceCents: int): int (abstract)</code> | <code>Excluded from this runnable stage.</code> |
 | MATCH | <code>+ applyWaitingLoss(): void</code> | <code>public void applyWaitingLoss()</code> |
-| MATCH | <code>+ recover(amount: int): void</code> | <code>public void recover(int)</code> |
+| STAGE 2/3 | <code>+ recover(amount: int): void</code> | <code>Excluded from this runnable stage.</code> |
 | MATCH | <code>+ isWaitingForTableOrFood(): boolean</code> | <code>public boolean isWaitingForTableOrFood()</code> |
 | MATCH | <code>+ placeOrder(item: MenuItem, lockedPriceCents: int): Order</code> | <code>public Order placeOrder(MenuItem, int)</code> |
 | MATCH | <code>+ serveOrder(turn: int): void</code> | <code>public void serveOrder(int)</code> |
 | MATCH | <code>+ finishEating(turn: int): void</code> | <code>public void finishEating(int)</code> |
 | MATCH | <code>+ canPay(turn: int): boolean</code> | <code>public boolean canPay(int)</code> |
-| CODE ADDITION | — | <code>private int tableId</code> |
 | CODE ADDITION | — | <code>public Customer(String, int, long)</code> |
 | CODE ADDITION | — | <code>public String id()</code> |
 | CODE ADDITION | — | <code>public int arrivalOrdinal()</code> |
@@ -163,8 +162,7 @@ Declaration difference: a concrete Stage 1 type replaces the final abstraction; 
 | CODE ADDITION | — | <code>public CustomerState state()</code> |
 | CODE ADDITION | — | <code>public Order order()</code> |
 | CODE ADDITION | — | <code>public Integer readyToPayTurn()</code> |
-| CODE ADDITION | — | <code>public int tableId()</code> |
-| CODE ADDITION | — | <code>public void seat(int)</code> |
+| CODE ADDITION | — | <code>void markSeated()</code> |
 | CODE ADDITION | — | <code>public void paid()</code> |
 | CODE ADDITION | — | <code>public void leave()</code> |
 
@@ -508,6 +506,7 @@ Source: [Restaurant.java](../src/main/java/edu/ntu/sc2002/entity/Restaurant.java
 | CODE ADDITION | — | <code>public Waiter waiter()</code> |
 | CODE ADDITION | — | <code>public Chef chef()</code> |
 | CODE ADDITION | — | <code>public Cashier cashier()</code> |
+| CODE ADDITION | — | <code>public Table tableFor(Customer)</code> |
 
 ## Satisfaction
 
@@ -685,9 +684,9 @@ Source: [WaitingQueue.java](../src/main/java/edu/ntu/sc2002/entity/WaitingQueue.
 
 | Status | Declarations |
 | --- | --- |
-| MATCH | 135 |
+| MATCH | 133 |
 | API DIFFERENCE | 26 |
-| STAGE 2/3 | 40 |
-| CODE ADDITION | 141 |
+| STAGE 2/3 | 42 |
+| CODE ADDITION | 140 |
 
 A literal API difference is not automatically a Stage 1 gameplay defect. See the audit for disposition.

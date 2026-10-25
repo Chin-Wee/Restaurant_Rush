@@ -48,6 +48,13 @@ public final class Restaurant {
         return table;
     }
 
+    /** Table.occupant is the sole source of table assignment. */
+    public Table tableFor(Customer customer) {
+        Objects.requireNonNull(customer);
+        return tables.stream().filter(t -> t.getOccupant() == customer).findFirst().orElse(null);
+    }
+
+    /** "Oldest" means earliest arrival among customers eligible to pay, not earliest readiness. */
     public Customer oldestPaymentCandidate(int turn) {
         return customers.stream().filter(c -> c.canPay(turn))
                 .min(Comparator.comparingInt(Customer::arrivalOrdinal)).orElse(null);

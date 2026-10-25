@@ -28,3 +28,9 @@ See [the complete Stage 1 trace](docs/Stage1-Parity-Audit.md), [every API differ
 After compilation, regenerate the declaration inventory with `python3 scripts/audit_stage1_api.py`, or check freshness with `python3 scripts/audit_stage1_api.py --check`. This marks mismatches rather than asserting none exist. Build tooling may download Maven/test dependencies on first use; the compiled CLI runs offline.
 
 Diagrams and their existing notes are in [docs/uml](docs/uml/): [class diagram](docs/uml/RestaurantRush_ClassDiagram.drawio), [sequence diagram](docs/uml/RestaurantRush_SequenceDiagram.drawio), and [design notes](docs/uml/DesignNotes.md).
+
+## Stage 1 release
+
+The runnable stage is published at [tag stage-1](https://github.com/Chin-Wee/Restaurant_Rush/tree/stage-1). The annotated tag and feat/stage-1 branch are released together after the build, behavior tests, API inventory and both CLI replays pass. Verify with `git ls-remote --tags origin refs/tags/stage-1 'refs/tags/stage-1^{}'`; compare the peeled tag hash with the release commit.
+
+Stage 1 deliberately omits Customer recovery and discount dispatch. Table.occupant is the only seating authority. Cashier chooses the earliest-arriving eligible customer; see the documented readiness-order counterexample in the test notes. Later stages will introduce customer discounts and Happy Hour recovery as actual source changes.
