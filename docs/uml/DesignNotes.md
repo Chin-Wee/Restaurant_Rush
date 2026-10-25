@@ -1,5 +1,7 @@
 # Restaurant Rush — UML diagrams (Stage 3 design)
 
+> Historical design notes for the final stage. They are not the Stage 1 behavioral specification. Some names below (SimulationConfig, ManagerChoices, ResultEvaluator and HappyHourPolicy) predate the supplied class diagram and do not name Stage 1 classes. The older shared-Random selection description also differs from the documented per-arrival seed used in Stage 1. See [the parity audit](../Stage1-Parity-Audit.md), [exact API differences](../Stage1-Api-Differences.md), and [Stage 1 test notes](../Stage1-TestNotes.md).
+
 Two draw.io files:
 
 | File | Content |
