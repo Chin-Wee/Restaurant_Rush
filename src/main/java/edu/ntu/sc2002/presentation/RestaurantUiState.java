@@ -19,13 +19,15 @@ public record RestaurantUiState(
         boolean canResolveTurn,
         StageThreeStatus stageThree,
         Feedback feedback,
-        ResultSummary result) {
+        ResultSummary result,
+        SceneState scene) {
 
     public RestaurantUiState {
         if (stage < 1 || turn < 1 || !Double.isFinite(revenue) || revenue < 0) {
             throw new IllegalArgumentException("Invalid stage, turn, or revenue");
         }
         Objects.requireNonNull(phase);
+        Objects.requireNonNull(scene);
         averagePaidSatisfaction = Objects.requireNonNull(averagePaidSatisfaction);
         checkSatisfaction(averagePaidSatisfaction);
         customers = List.copyOf(customers);
@@ -39,6 +41,29 @@ public record RestaurantUiState(
         if ((phase == UiPhase.COMPLETE) != (result != null)) {
             throw new IllegalArgumentException("Completed snapshots must include a result");
         }
+    }
+
+    /** Fixture constructor: preview movement is supplied separately by ScenePreviewDriver. */
+    public RestaurantUiState(int stage, int turn, UiPhase phase, double revenue,
+            OptionalDouble averagePaidSatisfaction, List<CustomerSummary> customers, List<TableSummary> tables,
+            List<OrderSummary> orders, List<WaiterChoice> waiterChoices, List<ChefChoice> chefChoices,
+            boolean canResolveTurn, StageThreeStatus stageThree, Feedback feedback, ResultSummary result) {
+        this(stage, turn, phase, revenue, averagePaidSatisfaction, customers, tables, orders, waiterChoices,
+                chefChoices, canResolveTurn, stageThree, feedback, result, SceneState.empty());
+    }
+
+    /** Visual placement only. Revision counters identify accepted tasks without parsing event text. */
+    public record SceneState(List<SceneCustomer> customers, List<Integer> readyTableIds,
+            Integer waiterTableId, int waiterRevision, int chefRevision) {
+        public SceneState {
+            customers = List.copyOf(customers);
+            readyTableIds = List.copyOf(readyTableIds);
+        }
+        public static SceneState empty() { return new SceneState(List.of(), List.of(), null, 0, 0); }
+    }
+
+    public record SceneCustomer(String id, int appearanceIndex, Integer tableId, Integer queuePosition) {
+        public SceneCustomer { requireText(id); }
     }
 
     private static void checkSatisfaction(OptionalDouble satisfaction) {

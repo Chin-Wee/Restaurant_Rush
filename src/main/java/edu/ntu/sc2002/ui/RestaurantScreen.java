@@ -51,17 +51,26 @@ public final class RestaurantScreen {
     private final VBox gameplayPanel = new VBox(5);
     private final HBox topHud = new HBox(18);
     private final Consumer<RestaurantUiState.Command> commandSink;
+    private final RestaurantScene scene;
+    private final boolean preview;
     private RestaurantUiState uiState;
     private ComboBox<WaiterChoice> waiterChoices;
     private ComboBox<ChefChoice> chefChoices;
 
     public RestaurantScreen(RestaurantScene scene, RestaurantUiState initialState,
             Consumer<RestaurantUiState.Command> commandSink) {
-        Objects.requireNonNull(scene);
+        this(scene, initialState, commandSink, false);
+    }
+
+    public RestaurantScreen(RestaurantScene scene, RestaurantUiState initialState,
+            Consumer<RestaurantUiState.Command> commandSink, boolean preview) {
+        this.scene = Objects.requireNonNull(scene);
+        this.preview = preview;
         this.commandSink = Objects.requireNonNull(commandSink);
         root.getChildren().addAll(scene.getRoot(), overlay);
         overlay.setPickOnBounds(false);
         overlay.setStyle("-fx-background-color: transparent;");
+        gameplayPanel.setId("gameplay-panel");
         gameplayPanel.setPadding(new Insets(7, 9, 7, 9));
         gameplayPanel.setStyle("-fx-background-color: rgba(30, 34, 48, 0.96);"
                 + "-fx-border-color: #b98753; -fx-border-width: 2 0 0 0;");
@@ -92,13 +101,14 @@ public final class RestaurantScreen {
         WaiterChoice previousWaiterChoice = waiterChoices == null ? null : waiterChoices.getValue();
         ChefChoice previousChefChoice = chefChoices == null ? null : chefChoices.getValue();
         uiState = Objects.requireNonNull(nextState);
+        if (!preview) scene.applyState(nextState.scene());
         renderTopHud();
         renderGameplayPanel(previousWaiterChoice, previousChefChoice);
     }
 
     private void renderTopHud() {
         topHud.getChildren().setAll(
-                hudText("UI PREVIEW"),
+                hudText(preview ? "UI PREVIEW" : "RESTAURANT RUSH"),
                 hudText("STAGE " + uiState.stage()),
                 hudText("TURN " + uiState.turn()),
                 hudText("PHASE " + uiState.phase()),
@@ -122,6 +132,9 @@ public final class RestaurantScreen {
         if (uiState.feedback() != null) {
             Label feedback = new Label(uiState.feedback().message());
             feedback.setWrapText(true);
+            feedback.setMaxHeight(28);
+            feedback.setMinHeight(16);
+            feedback.setTooltip(new javafx.scene.control.Tooltip(uiState.feedback().message()));
             feedback.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: "
                     + (uiState.feedback().rejected() ? "#ffb4a6;" : "#b9f1c7;"));
             gameplayPanel.getChildren().add(feedback);
