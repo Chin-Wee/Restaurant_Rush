@@ -12,6 +12,7 @@ public final class ScenePreviewDriver {
 
     public ScenePreviewDriver(RestaurantScene scene) {
         this.scene = scene;
+        scene.enablePreview();
         scene.moveTo("customer", 3, 7, true);
         scene.setAnimationStep(this::advance);
     }
