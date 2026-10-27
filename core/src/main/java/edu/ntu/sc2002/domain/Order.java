@@ -10,7 +10,6 @@ public final class Order {
     private final MenuItem menuItem;
     private int remainingPrepUnits;
     private OrderStatus status = OrderStatus.PENDING;
-    private final int lockedPriceCents;
     private int currentTurn;
     private Integer readyTurn;
     private Integer servedTurn;
@@ -21,7 +20,6 @@ public final class Order {
         this.customer = Objects.requireNonNull(customer);
         this.menuItem = Objects.requireNonNull(menuItem);
         remainingPrepUnits = menuItem.getPrepUnitsNeeded();
-        lockedPriceCents = customer.calculateBill(menuItem.getPriceCents());
     }
     public int getOrderId() { return orderId; }
     public Customer getCustomer() { return customer; }
@@ -29,7 +27,6 @@ public final class Order {
     public OrderStatus getStatus() { return status; }
     public boolean isReady() { return status == OrderStatus.READY; }
     public int unitsDone() { return menuItem.getPrepUnitsNeeded() - remainingPrepUnits; }
-    public int lockedPriceCents() { return lockedPriceCents; }
     public Integer servedTurn() { return servedTurn; }
     public int currentTurn() { return currentTurn; }
 

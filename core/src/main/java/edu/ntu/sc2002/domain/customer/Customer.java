@@ -2,8 +2,8 @@ package edu.ntu.sc2002.domain.customer;
 
 import edu.ntu.sc2002.domain.Order;
 import edu.ntu.sc2002.domain.OrderStatus;
-import edu.ntu.sc2002.domain.menu.Menu;
 import edu.ntu.sc2002.domain.menu.MenuItem;
+import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 
@@ -75,10 +75,10 @@ public final class Customer {
         arrivalOrdinal = ordinal;
     }
     public Order order() { return order; }
-    public MenuItem chooseItem(Menu menu) {
-        var items = Objects.requireNonNull(menu).getItems();
-        if (items.isEmpty()) throw new IllegalStateException("Menu is empty");
-        return items.get(new Random(choiceSeed).nextInt(items.size()));
+    public MenuItem chooseMenuItem(List<MenuItem> availableItems) {
+        Objects.requireNonNull(availableItems);
+        if (availableItems.isEmpty()) throw new IllegalStateException("Menu is empty");
+        return availableItems.get(new Random(choiceSeed).nextInt(availableItems.size()));
     }
     public boolean isWaitingForTableOrFood() { return state == CustomerState.QUEUED || state == CustomerState.SEATED; }
     public void placeOrder(Order placed) {

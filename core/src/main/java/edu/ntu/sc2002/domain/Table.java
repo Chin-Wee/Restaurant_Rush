@@ -7,6 +7,7 @@ import java.util.Objects;
 public final class Table {
     private final int tableId;
     private Customer seatedCustomer;
+    private boolean isOccupied;
 
     public Table(int tableId) {
         if (tableId < 1) throw new IllegalArgumentException("Invalid table ID");
@@ -20,6 +21,7 @@ public final class Table {
         if (customer.getState() != CustomerState.QUEUED) throw new IllegalStateException("Customer is not queued");
         customer.setState(CustomerState.SEATED);
         seatedCustomer = customer;
+        isOccupied = true;
     }
     public void releaseTable() {
         if (seatedCustomer != null && seatedCustomer.getState() != CustomerState.PAID
@@ -27,8 +29,8 @@ public final class Table {
             throw new IllegalStateException("Table remains occupied until payment or abandonment");
         }
         seatedCustomer = null;
+        isOccupied = false;
     }
-    /** Occupancy is derived from the single customer reference. */
-    public boolean isOccupied() { return seatedCustomer != null; }
+    public boolean isOccupied() { return isOccupied; }
     public Customer getSeatedCustomer() { return seatedCustomer; }
 }

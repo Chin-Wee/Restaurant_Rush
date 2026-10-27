@@ -5,10 +5,8 @@ import java.util.List;
 public record GameConfig(int maxTurns, int numTables, List<Integer> arrivalSchedule, long randomSeed) {
     public GameConfig {
         arrivalSchedule = List.copyOf(arrivalSchedule);
-        if (maxTurns < 1 || numTables < 1 || arrivalSchedule.stream().anyMatch(t -> t < 1 || t > maxTurns)
-                || arrivalSchedule.stream().distinct().count() != arrivalSchedule.size()
-                || !arrivalSchedule.equals(arrivalSchedule.stream().sorted().toList())) {
-            throw new IllegalArgumentException("Invalid game configuration");
+        if (maxTurns != 18 || numTables != 2 || !arrivalSchedule.equals(List.of(1, 4, 7, 10, 13, 16))) {
+            throw new IllegalArgumentException("Stage 1 requires 18 turns, two tables, and arrivals on turns 1, 4, 7, 10, 13, 16");
         }
     }
 

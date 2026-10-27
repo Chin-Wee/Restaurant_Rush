@@ -22,7 +22,7 @@ public class TurnController {
     private ChefChoiceDTO pendingChef;
     private int resolutionStep;
     private TurnPhase phase = TurnPhase.START_OF_TURN;
-    private int currentTurn;
+    private int currentTurn = 1;
     private boolean turnStarted;
     private String newArrival;
     private final List<String> events = new ArrayList<>();
@@ -30,7 +30,7 @@ public class TurnController {
     private List<String> departures = List.of();
 
     public TurnController() { this(GameConfig.stageOne(2026)); }
-    public TurnController(GameConfig config) { this(config, new Restaurant(config.numTables())); }
+    public TurnController(GameConfig config) { this(config, new Restaurant()); }
     public TurnController(GameConfig config, Restaurant restaurant) {
         this.config = java.util.Objects.requireNonNull(config);
         this.restaurant = java.util.Objects.requireNonNull(restaurant);
@@ -43,8 +43,8 @@ public class TurnController {
 
     /** Starts the turn so the UI can show the previous state before arrival. */
     public TurnResolution beginTurn() {
-        if (turnStarted || phase != TurnPhase.START_OF_TURN || currentTurn >= config.maxTurns()) throw new IllegalStateException("Cannot begin another turn");
-        currentTurn++;
+        if (turnStarted || phase != TurnPhase.START_OF_TURN) throw new IllegalStateException("Cannot begin another turn");
+        if (resolutionStep == 6) currentTurn++;
         events.clear(); departures = List.of(); paymentRecord = null;
         acceptedWaiter = null;
         pendingChef = null;
@@ -86,7 +86,7 @@ public class TurnController {
                 events.add("Waiter seats " + target.getId() + " at Table " + restaurant.tableFor(target).tableId() + ".");
             }
             case TAKE_ORDER -> {
-                Order order = restaurant.getStaff(Waiter.class).takeOrder(target, target.chooseItem(restaurant.menu()));
+                Order order = restaurant.getStaff(Waiter.class).takeOrder(target, target.chooseMenuItem(restaurant.menu().getItems()));
                 restaurant.registerOrder(order);
                 events.add(target.getId() + " orders " + order.getMenuItem().getName() + ".");
             }
@@ -165,7 +165,8 @@ public class TurnController {
         for (Customer customer : restaurant.customers()) customer.finishEating(currentTurn);
         Customer paying = restaurant.oldestPaymentCandidate(currentTurn);
         if (paying != null) {
-            paymentRecord = new PaymentRecord(paying.getId(), paying.order().lockedPriceCents(), paying.getSatisfaction());
+            paymentRecord = new PaymentRecord(paying.getId(),
+                    paying.calculateBill(paying.order().getMenuItem().getPriceCents()), paying.getSatisfaction());
             restaurant.getStaff(Cashier.class).processPayment(paying, paying.order(), restaurant);
             events.add(paymentRecord.customerId() + " pays " + money(paymentRecord.lockedPriceCents()) + ".");
         }
@@ -250,7 +251,8 @@ public class TurnController {
         }).toList();
         var orders = restaurant.customers().stream().filter(c -> c.order() != null).map(c ->
                 new GameSnapshot.OrderView(c.order().getOrderId(), c.getId(), c.order().getMenuItem().getName(), c.order().getStatus(),
-                        c.order().unitsDone(), c.order().getMenuItem().getPrepUnitsNeeded(), c.order().lockedPriceCents())).toList();
+                        c.order().unitsDone(), c.order().getMenuItem().getPrepUnitsNeeded(),
+                        c.calculateBill(c.order().getMenuItem().getPriceCents()))).toList();
         List<GameSnapshot.WaiterAction> waiterActions = new ArrayList<>();
         List<ChefChoiceDTO> chefActions = new ArrayList<>();
         if (turnStarted && phase == TurnPhase.MANAGER_CHOICES) {
@@ -276,12 +278,12 @@ public class TurnController {
         }
         double average = restaurant.getAverageSatisfaction();
         return new GameSnapshot(currentTurn, phase, restaurant.revenueCents(), Double.isNaN(average) ? null : average,
-                restaurant.servedCount(), restaurant.paidCount(), restaurant.unhappyDepartures(), currentTurn - (turnStarted ? 1 : 0),
+                restaurant.servedCount(), restaurant.paidCount(), restaurant.unhappyDepartures(), currentTurn - (turnStarted || resolutionStep == 0 ? 1 : 0),
                 waiting, tables, customers, orders, waiterActions, chefActions);
     }
 
     public TurnResolution lastResolution() {
-        if (turnStarted || currentTurn == 0) throw new IllegalStateException("Turn not resolved");
+        if (turnStarted || resolutionStep != 6) throw new IllegalStateException("Turn not resolved");
         return response(null);
     }
 

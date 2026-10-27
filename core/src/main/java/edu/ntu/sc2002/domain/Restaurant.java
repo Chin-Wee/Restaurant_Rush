@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.IntStream;
 
 public final class Restaurant {
     private int totalRevenueCents;
@@ -19,17 +18,14 @@ public final class Restaurant {
     private int totalPaidSatisfaction;
     private int servedCount;
     private int unhappyDepartures;
-    private final List<Table> tables;
+    private final List<Table> tables = List.of(new Table(1), new Table(2));
     private final WaitingQueue waitingQueue = new WaitingQueue();
     private final List<Order> activeOrders = new ArrayList<>();
     private final List<Customer> customers = new ArrayList<>();
     private final Menu menu = new Menu();
     private final List<Staff> staffList = new ArrayList<>();
 
-    public Restaurant() { this(2); }
-    public Restaurant(int numTables) {
-        if (numTables < 1) throw new IllegalArgumentException("At least one table is required");
-        tables = IntStream.rangeClosed(1, numTables).mapToObj(Table::new).toList();
+    public Restaurant() {
         addStaff(new Waiter("Waiter"));
         addStaff(new Chef("Chef"));
         addStaff(new Cashier("Cashier"));
@@ -128,7 +124,8 @@ public final class Restaurant {
                 || !activeOrders.contains(customer.order())) {
             throw new IllegalStateException("Customer is not ready to pay");
         }
-        PaymentRecord record = new PaymentRecord(customer.getId(), customer.order().lockedPriceCents(), customer.getSatisfaction());
+        PaymentRecord record = new PaymentRecord(customer.getId(),
+                customer.calculateBill(customer.order().getMenuItem().getPriceCents()), customer.getSatisfaction());
         // Reject accounting overflow before committing the customer's payment.
         Math.addExact(totalRevenueCents, record.lockedPriceCents());
         Math.addExact(totalPaidSatisfaction, record.satisfaction());
