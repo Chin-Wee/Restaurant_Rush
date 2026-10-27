@@ -1,21 +1,22 @@
 package edu.ntu.sc2002.domain.menu;
+
 import java.util.Objects;
 
-/** Abstract menu item — concrete subtypes (e.g. Dish) provide the implementation. */
-public abstract class MenuItem {
+/** A Phase 1 dish with a fixed price and preparation requirement. */
+public final class MenuItem {
     private final String name;
-    private final int basePriceCents;
-    private final int preparationUnits;
+    private final int priceCents;
+    private final int prepUnitsNeeded;
 
-    protected MenuItem(String name, int basePriceCents, int preparationUnits) {
+    public MenuItem(String name, int priceCents, int prepUnitsNeeded) {
         Objects.requireNonNull(name);
-        if (name.isBlank() || basePriceCents < 0 || preparationUnits < 1) throw new IllegalArgumentException();
+        if (name.isBlank() || priceCents < 0 || prepUnitsNeeded < 1) throw new IllegalArgumentException("Invalid menu item");
         this.name = name;
-        this.basePriceCents = basePriceCents;
-        this.preparationUnits = preparationUnits;
+        this.priceCents = priceCents;
+        this.prepUnitsNeeded = prepUnitsNeeded;
     }
 
-    public String name() { return name; }
-    public int priceCents() { return basePriceCents; }
-    public int preparationUnits() { return preparationUnits; }
+    public String getName() { return name; }
+    public int getPriceCents() { return priceCents; }
+    public int getPrepUnitsNeeded() { return prepUnitsNeeded; }
 }

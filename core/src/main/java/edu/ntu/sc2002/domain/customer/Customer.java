@@ -1,83 +1,106 @@
 package edu.ntu.sc2002.domain.customer;
+
 import edu.ntu.sc2002.domain.Order;
-import edu.ntu.sc2002.domain.Satisfaction;
 import edu.ntu.sc2002.domain.menu.Menu;
 import edu.ntu.sc2002.domain.menu.MenuItem;
-
 import java.util.Objects;
 import java.util.Random;
 
-/** Abstract customer — concrete subtypes (e.g. RegularCustomer) define satisfaction behaviour. */
-public abstract class Customer {
+/** Phase 1 customer. Only customers waiting for a table or food lose satisfaction. */
+public final class Customer {
     private final String id;
+    private int satisfaction = 100;
+    private CustomerState state = CustomerState.QUEUED;
     private final int arrivalOrdinal;
-    private final Satisfaction satisfaction = new Satisfaction();
     private final long choiceSeed;
-    private CustomerState state = CustomerState.WAITING;
     private Order order;
     private Integer readyToPayTurn;
 
-    protected Customer(String id, int arrivalOrdinal, long choiceSeed) {
+    public Customer(String id) { this(id, 1, 2026); }
+    public Customer(String id, int arrivalOrdinal, long choiceSeed) {
         if (id == null || id.isBlank() || arrivalOrdinal < 1) throw new IllegalArgumentException("Invalid customer identity");
         this.id = id;
         this.arrivalOrdinal = arrivalOrdinal;
         this.choiceSeed = choiceSeed;
     }
 
-    public String id() { return id; }
-    public int arrivalOrdinal() { return arrivalOrdinal; }
-    public Satisfaction satisfaction() { return satisfaction; }
-    public CustomerState state() { return state; }
-    public Order order() { return order; }
-    public Integer readyToPayTurn() { return readyToPayTurn; }
+    public String getId() { return id; }
+    public int getSatisfaction() { return satisfaction; }
+    public void setSatisfaction(int satisfaction) {
+        if (satisfaction < 0 || satisfaction > 100) throw new IllegalArgumentException("Satisfaction must be in 0..100");
+        this.satisfaction = satisfaction;
+    }
+    public CustomerState getState() { return state; }
+    public void setState(CustomerState next) {
+        Objects.requireNonNull(next);
+        if (next == state) return;
+        switch (next) {
+            case SEATED -> {
+                if (state != CustomerState.QUEUED) throw new IllegalStateException("Customer cannot be seated");
+                state = next;
+            }
+            case EATING -> serveOrder(requireOrder().currentTurn());
+            case READY_TO_PAY -> {
+                int turn = requireOrder().currentTurn();
+                if (state != CustomerState.EATING || order.servedTurn() >= turn) {
+                    throw new IllegalStateException("Customer must finish a later eating turn");
+                }
+                finishEating(turn);
+            }
+            case PAID -> paid();
+            case ABANDONED -> leave();
+            default -> throw new IllegalStateException("Customer cannot return to the queue");
+        }
+    }
+    public void applyTurnEndDecay() {
+        if (isWaitingForTableOrFood()) satisfaction = Math.max(0, satisfaction - 8);
+    }
+    public int calculateBill(int basePriceCents) {
+        if (basePriceCents < 0) throw new IllegalArgumentException("Price must be nonnegative");
+        return basePriceCents;
+    }
 
+    public int arrivalOrdinal() { return arrivalOrdinal; }
+    public Order order() { return order; }
     public MenuItem chooseItem(Menu menu) {
         var items = Objects.requireNonNull(menu).getItems();
         if (items.isEmpty()) throw new IllegalStateException("Menu is empty");
         return items.get(new Random(choiceSeed).nextInt(items.size()));
     }
-
-    public abstract int satisfactionLossPerTurn();
-    public boolean isWaitingForTableOrFood() { return state == CustomerState.WAITING || state == CustomerState.SEATED; }
-    public void applyWaitingLoss() { if (isWaitingForTableOrFood()) satisfaction.deduct(satisfactionLossPerTurn()); }
-    public void recover(int amount) { satisfaction.add(amount); }
-
-    public void markSeated() {
-        if (state != CustomerState.WAITING) throw new IllegalStateException("Customer cannot be seated");
-        state = CustomerState.SEATED;
-    }
-
-    public Order placeOrder(MenuItem item, int lockedPriceCents) {
-        if (state != CustomerState.SEATED || order != null) throw new IllegalStateException("Customer cannot place an order");
-        Order placed = new Order(item, lockedPriceCents);
+    public boolean isWaitingForTableOrFood() { return state == CustomerState.QUEUED || state == CustomerState.SEATED; }
+    public void placeOrder(Order placed) {
+        Objects.requireNonNull(placed);
+        if (state != CustomerState.SEATED || order != null || placed.getCustomer() != this) {
+            throw new IllegalStateException("Customer cannot place this order");
+        }
         order = placed;
-        return placed;
     }
-
     public void serveOrder(int turn) {
         if (state != CustomerState.SEATED || order == null) throw new IllegalStateException("Customer cannot be served");
         order.serve(turn);
         state = CustomerState.EATING;
     }
-
     public void finishEating(int turn) {
         if (state == CustomerState.EATING && order.servedTurn() < turn) {
             state = CustomerState.READY_TO_PAY;
             readyToPayTurn = turn;
         }
     }
-
     public boolean canPay(int turn) { return state == CustomerState.READY_TO_PAY && readyToPayTurn < turn; }
-
     public void paid() {
-        if (state != CustomerState.READY_TO_PAY) throw new IllegalStateException("Customer is not ready to pay");
+        if (state != CustomerState.READY_TO_PAY || !canPay(requireOrder().currentTurn())) {
+            throw new IllegalStateException("Customer is not eligible to pay this turn");
+        }
         order.markPaid();
         state = CustomerState.PAID;
     }
-
     public void leave() {
-        if (!isWaitingForTableOrFood() || satisfaction.getValue() != 0) throw new IllegalStateException("Customer is not abandoning");
+        if (!isWaitingForTableOrFood() || satisfaction != 0) throw new IllegalStateException("Customer is not abandoning");
         if (order != null) order.cancel();
-        state = CustomerState.LEFT;
+        state = CustomerState.ABANDONED;
+    }
+    private Order requireOrder() {
+        if (order == null) throw new IllegalStateException("Customer has no order");
+        return order;
     }
 }

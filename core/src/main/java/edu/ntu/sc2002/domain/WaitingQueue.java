@@ -1,24 +1,25 @@
 package edu.ntu.sc2002.domain;
+
 import edu.ntu.sc2002.domain.customer.Customer;
 import edu.ntu.sc2002.domain.customer.CustomerState;
-
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Objects;
+import java.util.Queue;
 
 public final class WaitingQueue {
-    private final ArrayDeque<Customer> members = new ArrayDeque<>();
+    private final Queue<Customer> queue = new ArrayDeque<>();
 
-    public void enqueue(Customer customer) {
+    public void addCustomer(Customer customer) {
         Objects.requireNonNull(customer);
-        if (customer.state() != CustomerState.WAITING || members.contains(customer)) {
+        if (customer.getState() != CustomerState.QUEUED || queue.contains(customer)) {
             throw new IllegalArgumentException("Customer cannot join the queue");
         }
-        members.addLast(customer);
+        queue.add(customer);
     }
-
-    public Customer dequeue() { return members.pollFirst(); }
-    public boolean remove(Customer customer) { return members.remove(customer); }
-    public List<Customer> getMembers() { return List.copyOf(members); }
-    public boolean isEmpty() { return members.isEmpty(); }
+    public Customer pollCustomer() { return queue.poll(); }
+    public Customer peekCustomer() { return queue.peek(); }
+    public List<Customer> getQueuedCustomers() { return List.copyOf(queue); }
+    public boolean remove(Customer customer) { return queue.remove(customer); }
+    public boolean isEmpty() { return queue.isEmpty(); }
 }
