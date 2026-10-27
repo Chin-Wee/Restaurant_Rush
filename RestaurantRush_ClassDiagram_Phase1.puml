@@ -51,11 +51,24 @@ hide empty members
 
 top to bottom direction
 
+legend top right
+  Constructors and private helper methods are omitted.
+  <<value>> types are immutable Java records: each listed
+  field has an implicit public accessor of the same name.
+endlegend
+
 ' ---------------------------------------------------------------------------
 ' Boundary and control
 ' ---------------------------------------------------------------------------
+class ConsoleApp <<boundary>> {
+  + {static} main(args: String[]) : void
+}
+
 class ConsoleUI <<boundary>> {
+  - input : Scanner
   - controller : GameController
+  - displayedEvents : int
+  + run() : void
   + displayTurnStart(snapshot: GameSnapshot) : void
   + promptManagerChoices() : void
   + displayError(message: String) : void
@@ -64,16 +77,30 @@ class ConsoleUI <<boundary>> {
 }
 
 class GameController <<control>> {
-  - currentTurn : int
-  - phase : TurnPhase
-  - restaurant : Restaurant
   - config : GameConfig
-  - customerFactory : CustomerFactory
+  - restaurant : Restaurant
   - scoreBoard : ScoreBoard
-  + beginTurn() : TurnResolution
-  + submitTurnChoices(waiterTask: WaiterDecision, chefTask: ChefDecision) : TurnResolution
-  + snapshot() : GameSnapshot
+  - customerFactory : CustomerFactory
+  - billCalculator : BillCalculator
+  - phase : TurnPhase
+  - currentTurn : int
+  - waiterTaskUsed : boolean
+  - turnStarted : boolean
+  - newArrival : String
+  - events : List<String>
+  - paymentRecord : PaymentRecord
+  - departures : List<String>
+  + phase() : TurnPhase
+  + currentTurn() : int
+  + randomSeed() : long
   + result() : GameResult
+  + beginTurn() : TurnResolution
+  + processArrival() : TurnResolution
+  + submitTurnChoices(waiterTask: WaiterDecision, chefTask: ChefDecision) : TurnResolution
+  + submitWaiterDecision(decision: WaiterDecision) : TurnResolution
+  + submitChefDecision(decision: ChefDecision) : TurnResolution
+  + snapshot() : GameSnapshot
+  + lastResolution() : TurnResolution
 }
 
 ' ---------------------------------------------------------------------------
@@ -87,8 +114,16 @@ class Restaurant <<entity>> {
   - waiter : Waiter
   - chef : Chef
   - cashier : Cashier
+  + waitingQueue() : WaitingQueue
+  + tables() : List<Table>
+  + customers() : List<Customer>
+  + menu() : Menu
+  + waiter() : Waiter
+  + chef() : Chef
+  + cashier() : Cashier
   + registerArrival(customer: Customer) : void
   + seat(customer: Customer) : Table
+  + tableFor(customer: Customer) : Table
   + oldestPaymentCandidate(turn: int) : Customer
   + completePayment(customer: Customer) : PaymentRecord
   + abandon(customer: Customer) : void
@@ -97,20 +132,29 @@ class Restaurant <<entity>> {
 abstract class Customer {
   - id : String
   - arrivalOrdinal : int
-  - state : CustomerState
   - satisfaction : Satisfaction
+  - choiceSeed : long
+  - state : CustomerState
   - order : Order
   - readyToPayTurn : Integer
-  - choiceSeed : long
+  + id() : String
+  + arrivalOrdinal() : int
+  + satisfaction() : Satisfaction
+  + state() : CustomerState
+  + order() : Order
+  + readyToPayTurn() : Integer
   + chooseItem(menu: Menu) : MenuItem
   {abstract} + satisfactionLossPerTurn() : int
+  + isWaitingForTableOrFood() : boolean
   + applyWaitingLoss() : void
   + recover(amount: int) : void
-  + isWaitingForTableOrFood() : boolean
+  + markSeated() : void
   + placeOrder(item: MenuItem, lockedPriceCents: int) : Order
   + serveOrder(turn: int) : void
   + finishEating(turn: int) : void
   + canPay(turn: int) : boolean
+  + paid() : void
+  + leave() : void
 }
 
 class RegularCustomer <<entity>> {
@@ -118,9 +162,10 @@ class RegularCustomer <<entity>> {
 }
 
 class WaitingQueue <<entity>> {
-  - members : List<Customer>
+  - members : Deque<Customer>
   + enqueue(customer: Customer) : void
   + dequeue() : Customer
+  + remove(customer: Customer) : boolean
   + getMembers() : List<Customer>
   + isEmpty() : boolean
 }
@@ -128,6 +173,7 @@ class WaitingQueue <<entity>> {
 class Table <<entity>> {
   - tableId : int
   - occupant : Customer
+  + tableId() : int
   + assign(customer: Customer) : void
   + vacate() : void
   + isOccupied() : boolean
@@ -141,6 +187,12 @@ class Order <<entity>> {
   - status : OrderStatus
   - readyTurn : Integer
   - servedTurn : Integer
+  + item() : MenuItem
+  + lockedPriceCents() : int
+  + unitsDone() : int
+  + status() : OrderStatus
+  + readyTurn() : Integer
+  + servedTurn() : Integer
   + advance(turn: int) : void
   + canServe(turn: int) : boolean
   + serve(turn: int) : void
@@ -204,8 +256,13 @@ class ScoreBoard {
   - revenueCents : int
   - paidSatisfactionTotal : int
   - paidCount : int
+  + recordServed() : void
   + recordPayment(record: PaymentRecord) : void
   + recordDeparture() : void
+  + servedCount() : int
+  + unhappyDepartures() : int
+  + revenueCents() : int
+  + paidCount() : int
   + getAveragePaidSatisfaction() : double
   + evaluateResult() : GameResult
 }
@@ -214,68 +271,88 @@ class CustomerFactory {
   + createCustomer(id: String, ordinal: int, seed: long) : Customer
 }
 
-class GameConfig {
+class GameConfig <<value>> {
   - maxTurns : int
   - numTables : int
   - arrivalSchedule : List<Integer>
+  - randomSeed : long
+  + {static} stageOne(seed: long) : GameConfig
 }
 
 ' ---------------------------------------------------------------------------
-' Value objects
+' Value objects (UI contract: IDs and immutable views, never domain entities)
 ' ---------------------------------------------------------------------------
 class GameSnapshot <<value>> {
   - turn : int
   - phase : TurnPhase
   - revenueCents : int
   - averagePaidSatisfaction : Double
-  - waitingQueue : List<Customer>
-  - tables : List<Table>
-  + getTurn() : int
-  + getPhase() : TurnPhase
-  + getRevenueCents() : int
-  + getAveragePaidSatisfaction() : Double
-  + getWaitingQueue() : List<Customer>
-  + getTables() : List<Table>
+  - servedCount : int
+  - paidCount : int
+  - unhappyDepartures : int
+  - turnsUsed : int
+  - waitingQueue : List<String>
+  - tables : List<TableView>
+  - customers : List<CustomerView>
+  - orders : List<OrderView>
+  - waiterActions : List<WaiterAction>
+  - chefActions : List<ChefDecision>
+}
+
+class "GameSnapshot.CustomerView" as CustomerView <<value>> {
+  - id : String
+  - arrivalOrdinal : int
+  - state : CustomerState
+  - satisfaction : int
+  - tableId : Integer
+  - queuePosition : Integer
+}
+
+class "GameSnapshot.TableView" as TableView <<value>> {
+  - id : int
+  - occupantId : String
+}
+
+class "GameSnapshot.OrderView" as OrderView <<value>> {
+  - id : String
+  - customerId : String
+  - item : String
+  - status : OrderStatus
+  - unitsDone : int
+  - preparationUnits : int
+  - lockedPriceCents : int
+}
+
+class "GameSnapshot.WaiterAction" as WaiterAction <<value>> {
+  - decision : WaiterDecision
+  - tableId : Integer
 }
 
 class TurnResolution <<value>> {
   - turn : int
   - events : List<String>
-  - newArrival : Customer
-  - departingCustomers : List<Customer>
+  - newArrival : String
+  - departingCustomers : List<String>
   - paymentRecord : PaymentRecord
   - isSuccessful : boolean
   - errorMessage : String
-  + getTurn() : int
-  + getEvents() : List<String>
-  + getNewArrival() : Customer
-  + getDepartingCustomers() : List<Customer>
-  + getPaymentRecord() : PaymentRecord
-  + isSuccessful() : boolean
-  + getErrorMessage() : String
+  - result : GameResult
 }
 
 class PaymentRecord <<value>> {
   - customerId : String
   - lockedPriceCents : int
   - satisfaction : int
-  + getCustomerId() : String
-  + getLockedPriceCents() : int
-  + getSatisfaction() : int
 }
 
 class WaiterDecision <<value>> {
   - taskType : WaiterTaskType
-  - targetCustomer : Customer
-  + getTaskType() : WaiterTaskType
-  + getTargetCustomer() : Customer
+  - targetCustomerId : String
 }
 
 class ChefDecision <<value>> {
   - taskType : ChefTaskType
-  - targetCustomer : Customer
-  + getTaskType() : ChefTaskType
-  + getTargetCustomer() : Customer
+  - targetCustomerId : String
 }
 
 ' ---------------------------------------------------------------------------
@@ -330,10 +407,18 @@ Customer <|-- RegularCustomer
 MenuItem <|-- Dish
 
 ' ---------------------------------------------------------------------------
+' Nested types
+' ---------------------------------------------------------------------------
+GameSnapshot +-- CustomerView
+GameSnapshot +-- TableView
+GameSnapshot +-- OrderView
+GameSnapshot +-- WaiterAction
+
+' ---------------------------------------------------------------------------
 ' Composition and aggregation
 ' ---------------------------------------------------------------------------
 Restaurant *-down- "1" WaitingQueue
-Restaurant *-down- "0..*" Table
+Restaurant *-down- "1..*" Table
 Customer *-down- "1" Satisfaction
 WaitingQueue o-right- "0..*" Customer : members
 Menu o-down- "1..*" MenuItem : items
@@ -344,51 +429,78 @@ Menu o-down- "1..*" MenuItem : items
 ConsoleUI -down-> GameController : controller
 GameController -down-> Restaurant : restaurant
 GameController -down-> ScoreBoard : scoreBoard
-GameController -right-> GameConfig
+GameController -right-> GameConfig : config
 GameController -down-> CustomerFactory : customerFactory
+GameController -down-> BillCalculator : billCalculator
 GameController -down-> TurnPhase : phase
+GameController -down-> "0..1" PaymentRecord : paymentRecord
 Restaurant -down-> Menu
 Restaurant -down-> "0..*" Customer : customers
 Restaurant -down-> Waiter
 Restaurant -down-> Chef
 Restaurant -down-> Cashier
-Table -right-> "0..1" Customer
+Table -right-> "0..1" Customer : occupant
 Customer -down-> "0..1" Order : order
-Customer -down-> CustomerState
+Customer -down-> CustomerState : state
 Order -down-> MenuItem : item
 Order -down-> OrderStatus : status
-WaiterDecision -right-> WaiterTaskType
-ChefDecision -right-> ChefTaskType
-TurnResolution -down-> Customer : newArrival / departing
-TurnResolution -down-> PaymentRecord
+WaiterDecision -right-> WaiterTaskType : taskType
+ChefDecision -right-> ChefTaskType : taskType
+TurnResolution -down-> "0..1" PaymentRecord : paymentRecord
+TurnResolution -down-> "0..1" GameResult : result
+GameSnapshot -down-> TurnPhase : phase
+GameSnapshot -down-> "0..*" ChefDecision : chefActions
+WaiterAction -down-> WaiterDecision : decision
+CustomerView -down-> CustomerState : state
+OrderView -down-> OrderStatus : status
 
 ' ---------------------------------------------------------------------------
 ' Dependencies
 ' ---------------------------------------------------------------------------
+ConsoleApp .down.> ConsoleUI
+ConsoleApp .down.> GameController
+ConsoleApp .down.> GameConfig
 ConsoleUI .down.> GameSnapshot
 ConsoleUI .down.> TurnResolution
 ConsoleUI .down.> GameResult
+ConsoleUI .down.> TurnPhase
+ConsoleUI .down.> WaiterDecision
+ConsoleUI .down.> ChefDecision
+ConsoleUI .down.> WaiterTaskType
+ConsoleUI .down.> ChefTaskType
+ConsoleUI .down.> CustomerState
 GameController .left.> GameSnapshot
 GameController .down.> WaiterDecision
 GameController .down.> ChefDecision
+GameController .down.> WaiterTaskType
+GameController .down.> ChefTaskType
 GameController .down.> TurnResolution
 GameController .right.> GameResult
+GameController .down.> Customer
+GameController .down.> CustomerState
+GameController .down.> Order
+GameController .down.> OrderStatus
+GameController .down.> Table
 Waiter .up.> Restaurant
 Waiter .left.> Customer
 Waiter .down.> Menu
+Waiter .down.> MenuItem
 Waiter .down.> BillCalculator
 Waiter .down.> Order
 Chef .left.> Customer
 Cashier .up.> Restaurant
+Cashier .left.> Customer
 Cashier .right.> PaymentRecord
 ScoreBoard .down.> PaymentRecord
 ScoreBoard .up.> GameResult
 CustomerFactory .down.> Customer
+CustomerFactory .down.> RegularCustomer
 BillCalculator .up.> Customer
 BillCalculator .down.> MenuItem
-WaiterDecision .down.> Customer
-ChefDecision .down.> Customer
 Restaurant .down.> PaymentRecord
+Restaurant .down.> CustomerState
+Table .down.> CustomerState
+WaitingQueue .down.> CustomerState
 Customer .down.> Menu
 Customer .down.> MenuItem
 
@@ -396,6 +508,7 @@ Customer .down.> MenuItem
 ' Invisible layout guides - these do not appear in the rendered diagram.
 ' They keep each horizontal band ordered and prevent long edge detours.
 ' ---------------------------------------------------------------------------
+ConsoleApp -[hidden]right- ConsoleUI
 ConsoleUI -[hidden]down- GameController
 GameSnapshot -[hidden]right- GameController
 GameController -[hidden]right- GameConfig
@@ -426,5 +539,10 @@ RegularCustomer -[hidden]right- CustomerState
 CustomerState -[hidden]right- BillCalculator
 
 MenuItem -[hidden]right- OrderStatus
+
+GameSnapshot -[hidden]down- CustomerView
+CustomerView -[hidden]right- TableView
+TableView -[hidden]right- OrderView
+OrderView -[hidden]right- WaiterAction
 
 @enduml

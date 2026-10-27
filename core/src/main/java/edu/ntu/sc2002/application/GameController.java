@@ -19,6 +19,8 @@ public final class GameController {
     private final GameConfig config;
     private final Restaurant restaurant;
     private final ScoreBoard scoreBoard;
+    private final CustomerFactory customerFactory;
+    private final BillCalculator billCalculator = new BillCalculator();
     private TurnPhase phase = TurnPhase.START_OF_TURN;
     private int currentTurn;
     private boolean waiterTaskUsed;
@@ -31,16 +33,18 @@ public final class GameController {
     public GameController() { this(GameConfig.stageOne(2026)); }
     public GameController(GameConfig config) { this(config, new Restaurant(config.numTables()), new ScoreBoard()); }
     public GameController(GameConfig config, Restaurant restaurant, ScoreBoard scoreBoard) {
+        this(config, restaurant, scoreBoard, new CustomerFactory());
+    }
+    public GameController(GameConfig config, Restaurant restaurant, ScoreBoard scoreBoard, CustomerFactory customerFactory) {
         this.config = java.util.Objects.requireNonNull(config);
         this.restaurant = java.util.Objects.requireNonNull(restaurant);
         this.scoreBoard = java.util.Objects.requireNonNull(scoreBoard);
+        this.customerFactory = java.util.Objects.requireNonNull(customerFactory);
         if (restaurant.tables().size() != config.numTables()) throw new IllegalArgumentException("Table count differs from configuration");
     }
     public TurnPhase phase() { return phase; }
     public int currentTurn() { return currentTurn; }
     public long randomSeed() { return config.randomSeed(); }
-    Restaurant restaurant() { return restaurant; }
-    ScoreBoard scoreBoard() { return scoreBoard; }
     public GameResult result() { return phase == TurnPhase.GAME_OVER ? scoreBoard.evaluateResult() : null; }
 
     /** Starts the turn so the UI can show the previous state before arrival. */
@@ -60,13 +64,23 @@ public final class GameController {
         if (!turnStarted) throw new IllegalStateException("Begin the turn before processing arrivals");
         if (config.arrivalSchedule().contains(currentTurn)) {
             int ordinal = (int) config.arrivalSchedule().stream().filter(t -> t <= currentTurn).count();
-            Customer customer = new Customer("C" + ordinal, ordinal, config.randomSeed() + ordinal);
+            Customer customer = customerFactory.createCustomer("C" + ordinal, ordinal, config.randomSeed() + ordinal);
             restaurant.registerArrival(customer);
             newArrival = customer.id();
             events.add("Arrival: " + customer.id() + " joins the queue.");
         }
         phase = TurnPhase.MANAGER_CHOICES;
         return response(null);
+    }
+
+    /**
+     * Submits both manager choices for the turn. The Waiter task is applied first because the Chef
+     * may advance the order it just took; if the Chef choice is then rejected, the Waiter task stays
+     * applied and the Chef choice can be resubmitted through {@link #submitChefDecision}.
+     */
+    public TurnResolution submitTurnChoices(WaiterDecision waiterTask, ChefDecision chefTask) {
+        TurnResolution waiterResult = submitWaiterDecision(waiterTask);
+        return waiterResult.isSuccessful() ? submitChefDecision(chefTask) : waiterResult;
     }
 
     public TurnResolution submitWaiterDecision(WaiterDecision decision) {
@@ -81,7 +95,7 @@ public final class GameController {
                 events.add("Waiter seats " + target.id() + " at Table " + restaurant.tableFor(target).tableId() + ".");
             }
             case TAKE_ORDER -> {
-                Order order = restaurant.waiter().takeOrder(target, restaurant.menu(), currentTurn);
+                Order order = restaurant.waiter().takeOrder(target, restaurant.menu(), billCalculator, currentTurn);
                 events.add(target.id() + " orders " + order.item().name() + ".");
             }
             case SERVE -> {
@@ -92,11 +106,6 @@ public final class GameController {
         }
         waiterTaskUsed = true;
         return response(null);
-    }
-
-    List<Customer> advanceableOrders() {
-        return restaurant.customers().stream().filter(c -> c.order() != null
-                && (c.order().status() == OrderStatus.PLACED || c.order().status() == OrderStatus.PREPARING)).toList();
     }
 
     public TurnResolution submitChefDecision(ChefDecision decision) {
@@ -219,5 +228,5 @@ public final class GameController {
         return restaurant.customers().stream().filter(c -> c.id().equalsIgnoreCase(id)).findFirst().orElse(null);
     }
     private void requirePhase(TurnPhase expected) { if (phase != expected) throw new IllegalStateException("Unexpected turn phase: " + phase); }
-    public static String money(int cents) { return String.format(java.util.Locale.ROOT, "$%.2f", cents / 100.0); }
+    private static String money(int cents) { return String.format(java.util.Locale.ROOT, "$%.2f", cents / 100.0); }
 }

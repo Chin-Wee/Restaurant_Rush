@@ -1,8 +1,4 @@
 package edu.ntu.sc2002.ui.console;
-import edu.ntu.sc2002.domain.staff.Waiter;
-import edu.ntu.sc2002.domain.customer.Customer;
-import edu.ntu.sc2002.domain.staff.Chef;
-import edu.ntu.sc2002.domain.Restaurant;
 
 import edu.ntu.sc2002.application.*;
 import edu.ntu.sc2002.application.contract.*;
@@ -106,10 +102,12 @@ public final class ConsoleUI {
         return value == null ? "N/A" : String.format(Locale.ROOT, "%.1f", value);
     }
 
+    private static String money(int cents) { return String.format(Locale.ROOT, "$%.2f", cents / 100.0); }
+
     public void displayTurnStart(GameSnapshot snapshot) {
         displayedEvents = 0;
         System.out.printf("%nTURN %d | Revenue %s | Average paid satisfaction %s%n",
-                snapshot.turn(), GameController.money(snapshot.revenueCents()), satisfaction(snapshot.averagePaidSatisfaction()));
+                snapshot.turn(), money(snapshot.revenueCents()), satisfaction(snapshot.averagePaidSatisfaction()));
         System.out.println("Queue: " + snapshot.waitingQueue());
         snapshot.tables().forEach(t -> System.out.println("Table " + t.id() + ": " + (t.occupantId() == null ? "Available" : t.occupantId())));
         snapshot.customers().forEach(c -> System.out.println(c.id() + " " + c.state() + " satisfaction " + c.satisfaction()
@@ -133,14 +131,14 @@ public final class ConsoleUI {
         displayEvents(resolution);
         GameSnapshot s = controller.snapshot();
         System.out.printf("End turn %d: served %d | paid %d | departures %d | revenue %s | average paid satisfaction %s | turns used %d%n",
-                resolution.turn(), s.servedCount(), s.paidCount(), s.unhappyDepartures(), GameController.money(s.revenueCents()),
+                resolution.turn(), s.servedCount(), s.paidCount(), s.unhappyDepartures(), money(s.revenueCents()),
                 satisfaction(s.averagePaidSatisfaction()), s.turnsUsed());
     }
 
     public void displayEndGameResult(GameResult result) {
         GameSnapshot s = controller.snapshot();
         System.out.printf("%n%s — served %d, paid %d, departures %d, revenue %s, average paid satisfaction %s, turns used %d%n",
-                result, s.servedCount(), s.paidCount(), s.unhappyDepartures(), GameController.money(s.revenueCents()),
+                result, s.servedCount(), s.paidCount(), s.unhappyDepartures(), money(s.revenueCents()),
                 satisfaction(s.averagePaidSatisfaction()), s.turnsUsed());
     }
 }
