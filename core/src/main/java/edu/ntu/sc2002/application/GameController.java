@@ -18,7 +18,9 @@ import java.util.List;
 public final class GameController {
     private final GameConfig config;
     private final Restaurant restaurant;
+    private final CustomerFactory customerFactory;
     private final ScoreBoard scoreBoard;
+    private final BillCalculator billCalculator;
     private TurnPhase phase = TurnPhase.START_OF_TURN;
     private int currentTurn;
     private boolean waiterTaskUsed;
@@ -29,11 +31,13 @@ public final class GameController {
     private List<String> departures = List.of();
 
     public GameController() { this(GameConfig.stageOne(2026)); }
-    public GameController(GameConfig config) { this(config, new Restaurant(config.numTables()), new ScoreBoard()); }
-    public GameController(GameConfig config, Restaurant restaurant, ScoreBoard scoreBoard) {
+    public GameController(GameConfig config) { this(config, new Restaurant(config.numTables()), new CustomerFactory(), new ScoreBoard(), new BillCalculator()); }
+    public GameController(GameConfig config, Restaurant restaurant, CustomerFactory customerFactory, ScoreBoard scoreBoard, BillCalculator billCalculator) {
         this.config = java.util.Objects.requireNonNull(config);
         this.restaurant = java.util.Objects.requireNonNull(restaurant);
+        this.customerFactory = java.util.Objects.requireNonNull(customerFactory);
         this.scoreBoard = java.util.Objects.requireNonNull(scoreBoard);
+        this.billCalculator = java.util.Objects.requireNonNull(billCalculator);
         if (restaurant.tables().size() != config.numTables()) throw new IllegalArgumentException("Table count differs from configuration");
     }
     public TurnPhase phase() { return phase; }
@@ -60,7 +64,7 @@ public final class GameController {
         if (!turnStarted) throw new IllegalStateException("Begin the turn before processing arrivals");
         if (config.arrivalSchedule().contains(currentTurn)) {
             int ordinal = (int) config.arrivalSchedule().stream().filter(t -> t <= currentTurn).count();
-            Customer customer = new Customer("C" + ordinal, ordinal, config.randomSeed() + ordinal);
+            Customer customer = customerFactory.createCustomer("C" + ordinal, ordinal, config.randomSeed() + ordinal);
             restaurant.registerArrival(customer);
             newArrival = customer.id();
             events.add("Arrival: " + customer.id() + " joins the queue.");
@@ -81,7 +85,7 @@ public final class GameController {
                 events.add("Waiter seats " + target.id() + " at Table " + restaurant.tableFor(target).tableId() + ".");
             }
             case TAKE_ORDER -> {
-                Order order = restaurant.waiter().takeOrder(target, restaurant.menu(), currentTurn);
+                Order order = restaurant.waiter().takeOrder(target, restaurant.menu(), billCalculator, currentTurn);
                 events.add(target.id() + " orders " + order.item().name() + ".");
             }
             case SERVE -> {
@@ -92,6 +96,13 @@ public final class GameController {
         }
         waiterTaskUsed = true;
         return response(null);
+    }
+
+    /** Facade: submit both manager choices in one call (diagram contract). */
+    public TurnResolution submitTurnChoices(WaiterDecision waiterTask, ChefDecision chefTask) {
+        TurnResolution waiterResult = submitWaiterDecision(waiterTask);
+        if (!waiterResult.isSuccessful()) return waiterResult;
+        return submitChefDecision(chefTask);
     }
 
     List<Customer> advanceableOrders() {

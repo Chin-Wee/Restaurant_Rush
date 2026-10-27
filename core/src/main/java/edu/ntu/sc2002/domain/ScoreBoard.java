@@ -14,10 +14,9 @@ public final class ScoreBoard {
     public int unhappyDepartures() { return unhappyDepartures; }
     public int revenueCents() { return revenueCents; }
     public int paidCount() { return paidCount; }
-    public double averagePaidSatisfaction() { return paidCount == 0 ? Double.NaN : (double) paidSatisfactionTotal / paidCount; }
-    public double getAveragePaidSatisfaction() { return averagePaidSatisfaction(); }
+    public double getAveragePaidSatisfaction() { return paidCount == 0 ? Double.NaN : (double) paidSatisfactionTotal / paidCount; }
     public GameResult evaluateResult() {
-        return paidCount >= 4 && revenueCents >= 4500 && paidCount > 0 && averagePaidSatisfaction() >= 60
+        return paidCount >= 4 && revenueCents >= 4500 && paidCount > 0 && getAveragePaidSatisfaction() >= 60
                 ? GameResult.VICTORY : GameResult.DEFEAT;
     }
 }

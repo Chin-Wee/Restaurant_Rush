@@ -7,8 +7,8 @@ import edu.ntu.sc2002.domain.menu.MenuItem;
 import java.util.Objects;
 import java.util.Random;
 
-/** Stage 1's concrete Regular customer. */
-public final class Customer {
+/** Abstract customer — concrete subtypes (e.g. RegularCustomer) define satisfaction behaviour. */
+public abstract class Customer {
     private final String id;
     private final int arrivalOrdinal;
     private final Satisfaction satisfaction = new Satisfaction();
@@ -17,7 +17,7 @@ public final class Customer {
     private Order order;
     private Integer readyToPayTurn;
 
-    public Customer(String id, int arrivalOrdinal, long choiceSeed) {
+    protected Customer(String id, int arrivalOrdinal, long choiceSeed) {
         if (id == null || id.isBlank() || arrivalOrdinal < 1) throw new IllegalArgumentException("Invalid customer identity");
         this.id = id;
         this.arrivalOrdinal = arrivalOrdinal;
@@ -37,9 +37,10 @@ public final class Customer {
         return items.get(new Random(choiceSeed).nextInt(items.size()));
     }
 
-    public int satisfactionLossPerTurn() { return 8; }
+    public abstract int satisfactionLossPerTurn();
     public boolean isWaitingForTableOrFood() { return state == CustomerState.WAITING || state == CustomerState.SEATED; }
     public void applyWaitingLoss() { if (isWaitingForTableOrFood()) satisfaction.deduct(satisfactionLossPerTurn()); }
+    public void recover(int amount) { satisfaction.add(amount); }
 
     public void markSeated() {
         if (state != CustomerState.WAITING) throw new IllegalStateException("Customer cannot be seated");
