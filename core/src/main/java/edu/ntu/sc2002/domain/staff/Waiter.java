@@ -4,6 +4,7 @@ import edu.ntu.sc2002.domain.Order;
 import edu.ntu.sc2002.domain.Table;
 import edu.ntu.sc2002.domain.WaitingQueue;
 import edu.ntu.sc2002.domain.customer.Customer;
+import edu.ntu.sc2002.domain.customer.CustomerState;
 import edu.ntu.sc2002.domain.menu.MenuItem;
 import java.util.Objects;
 
@@ -37,8 +38,10 @@ public final class Waiter extends Staff {
     public boolean serveOrder(Order order) {
         requireAvailable();
         Objects.requireNonNull(order);
-        if (!order.canServe(currentTurn())) return false;
-        order.getCustomer().serveOrder(currentTurn());
+        Customer customer = order.getCustomer();
+        if (customer.order() != order || customer.getState() != CustomerState.SEATED
+                || !order.canServe(currentTurn())) return false;
+        customer.serveOrder(currentTurn());
         completeAction();
         return true;
     }

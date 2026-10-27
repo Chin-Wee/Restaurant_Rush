@@ -2,9 +2,9 @@ package edu.ntu.sc2002.application;
 import edu.ntu.sc2002.application.contract.TurnPhase;
 import edu.ntu.sc2002.application.contract.TurnResolution;
 import edu.ntu.sc2002.application.contract.GameSnapshot;
-import edu.ntu.sc2002.application.contract.ChefDecision;
+import edu.ntu.sc2002.application.contract.ChefChoiceDTO;
 import edu.ntu.sc2002.application.contract.ChefTaskType;
-import edu.ntu.sc2002.application.contract.WaiterDecision;
+import edu.ntu.sc2002.application.contract.WaiterChoiceDTO;
 import edu.ntu.sc2002.application.contract.WaiterTaskType;
 import edu.ntu.sc2002.application.contract.TurnChoicesDTO;
 
@@ -18,11 +18,8 @@ import java.util.List;
 public class TurnController {
     private final GameConfig config;
     private final Restaurant restaurant;
-    private final Waiter waiter;
-    private final Chef chef;
-    private final Cashier cashier;
-    private WaiterDecision acceptedWaiter;
-    private ChefDecision pendingChef;
+    private WaiterChoiceDTO acceptedWaiter;
+    private ChefChoiceDTO pendingChef;
     private int resolutionStep;
     private TurnPhase phase = TurnPhase.START_OF_TURN;
     private int currentTurn;
@@ -38,14 +35,10 @@ public class TurnController {
         this.config = java.util.Objects.requireNonNull(config);
         this.restaurant = java.util.Objects.requireNonNull(restaurant);
         if (restaurant.getTables().size() != config.numTables()) throw new IllegalArgumentException("Table count differs from configuration");
-        waiter = restaurant.waiter();
-        chef = restaurant.chef();
-        cashier = restaurant.cashier();
     }
     public TurnPhase phase() { return phase; }
     public int currentTurn() { return currentTurn; }
     public long randomSeed() { return config.randomSeed(); }
-    Restaurant restaurant() { return restaurant; }
     public GameResult result() { return phase == TurnPhase.GAME_OVER ? restaurant.evaluateResult() : GameResult.IN_PROGRESS; }
 
     /** Starts the turn so the UI can show the previous state before arrival. */
@@ -56,9 +49,7 @@ public class TurnController {
         acceptedWaiter = null;
         pendingChef = null;
         resolutionStep = 0;
-        waiter.startTurn(currentTurn);
-        chef.startTurn(currentTurn);
-        cashier.startTurn(currentTurn);
+        restaurant.getStaffList().forEach(staff -> staff.startTurn(currentTurn));
         restaurant.getActiveOrders().forEach(o -> o.startTurn(currentTurn));
         newArrival = null;
         turnStarted = true;
@@ -70,7 +61,7 @@ public class TurnController {
         requirePhase(TurnPhase.START_OF_TURN);
         if (!turnStarted) throw new IllegalStateException("Begin the turn before processing arrivals");
         if (config.arrivalSchedule().contains(currentTurn)) {
-            int ordinal = (int) config.arrivalSchedule().stream().filter(t -> t <= currentTurn).count();
+            int ordinal = restaurant.customers().size() + 1;
             Customer customer = new Customer("C" + ordinal, ordinal, config.randomSeed() + ordinal);
             restaurant.registerArrival(customer);
             newArrival = customer.getId();
@@ -80,14 +71,14 @@ public class TurnController {
         return response(null);
     }
 
-    public TurnResolution submitWaiterDecision(WaiterDecision decision) {
+    public TurnResolution submitWaiterDecision(WaiterChoiceDTO decision) {
         requirePhase(TurnPhase.MANAGER_CHOICES);
         String error = waiterError(decision);
         if (error != null) return response(error);
-        Customer target = findCustomer(decision.targetCustomerId());
+        Customer target = customerForWaiterChoice(decision);
         switch (decision.taskType()) {
             case WAIT -> {
-                waiter.waitTurn();
+                restaurant.getStaff(Waiter.class).waitTurn();
                 events.add("Waiter waits.");
             }
             case SEAT -> {
@@ -95,33 +86,17 @@ public class TurnController {
                 events.add("Waiter seats " + target.getId() + " at Table " + restaurant.tableFor(target).tableId() + ".");
             }
             case TAKE_ORDER -> {
-                Order order = waiter.takeOrder(target, target.chooseItem(restaurant.menu()));
+                Order order = restaurant.getStaff(Waiter.class).takeOrder(target, target.chooseItem(restaurant.menu()));
                 restaurant.registerOrder(order);
                 events.add(target.getId() + " orders " + order.getMenuItem().getName() + ".");
             }
-            case SERVE -> {
-                if (!waiter.serveOrder(target.order())) throw new IllegalStateException("Accepted order is not servable");
-                restaurant.recordServed();
-                events.add("Waiter serves " + target.getId() + "'s " + target.order().getMenuItem().getName() + ".");
-            }
+            case SERVE -> { /* Service is performed in step 3, before the Chef. */ }
         }
         acceptedWaiter = decision;
         return response(null);
     }
 
-    /** Compatibility entry point used by clients with separate typed decisions. */
-    public TurnResolution submitTurnChoices(WaiterDecision waiterTask, ChefDecision chefTask) {
-        requirePhase(TurnPhase.MANAGER_CHOICES);
-        if (!waiter.hasActed()) {
-            TurnResolution waiterResult = submitWaiterDecision(waiterTask);
-            if (!waiterResult.isSuccessful()) return waiterResult;
-        } else if (!java.util.Objects.equals(waiterTask, acceptedWaiter)) {
-            return response("The Waiter task is already accepted.");
-        }
-        return submitChefDecision(chefTask);
-    }
-
-    public TurnResolution submitChefDecision(ChefDecision decision) {
+    public TurnResolution submitChefDecision(ChefChoiceDTO decision) {
         requirePhase(TurnPhase.MANAGER_CHOICES);
         String error = chefError(decision);
         if (error != null) return response(error);
@@ -150,37 +125,35 @@ public class TurnController {
     public void executeStep2ManagerChoices(TurnChoicesDTO choices) {
         requirePhase(TurnPhase.MANAGER_CHOICES);
         java.util.Objects.requireNonNull(choices);
-        var choice = choices.getWaiterChoice();
-        Customer target = choice.getTaskType() == WaiterTaskType.SERVE
-                ? customerForOrder(choice.getTargetId()) : customerForOrdinal(choice.getTargetId());
-        var decision = new WaiterDecision(choice.getTaskType(), target == null ? null : target.getId());
-        if (!waiter.hasActed()) {
-            TurnResolution response = submitWaiterDecision(decision);
+        if (acceptedWaiter == null) {
+            TurnResolution response = submitWaiterDecision(choices.getWaiterChoice());
             if (!response.isSuccessful()) throw new IllegalArgumentException(response.errorMessage());
-        } else if (!decision.equals(acceptedWaiter)) {
+        } else if (!choices.getWaiterChoice().equals(acceptedWaiter)) {
             throw new IllegalArgumentException("The Waiter task is already accepted.");
         }
-        var chefChoice = choices.getChefChoice();
-        Customer chefTarget = customerForOrder(chefChoice.getTargetOrderId());
-        var chefDecision = new ChefDecision(chefChoice.isCooking() ? ChefTaskType.ADVANCE : ChefTaskType.WAIT,
-                chefTarget == null ? null : chefTarget.getId());
-        String error = chefError(chefDecision);
+        String error = chefError(choices.getChefChoice());
         if (error != null) throw new IllegalArgumentException(error);
-        pendingChef = chefDecision;
+        pendingChef = choices.getChefChoice();
     }
 
-    /** Waiter work is accepted immediately so the Chef can prepare an order placed this turn. */
+    /** New orders are exposed during selection; service resolves before the Chef's preparation. */
     public void executeStep3KitchenAndServing() {
         requirePhase(TurnPhase.MANAGER_CHOICES);
         String error = chefError(pendingChef);
         if (error != null) throw new IllegalStateException(error);
-        Customer target = findCustomer(pendingChef.targetCustomerId());
-        if (pendingChef.taskType() == ChefTaskType.ADVANCE) {
-            chef.prepareOrder(target.order());
+        if (acceptedWaiter.taskType() == WaiterTaskType.SERVE) {
+            Customer served = customerForWaiterChoice(acceptedWaiter);
+            if (!restaurant.getStaff(Waiter.class).serveOrder(served.order())) throw new IllegalStateException("Accepted order is not servable");
+            restaurant.recordServed();
+            events.add("Waiter serves " + served.getId() + "'s " + served.order().getMenuItem().getName() + ".");
+        }
+        Customer target = customerForOrder(pendingChef.targetOrderId());
+        if (pendingChef.taskType() == ChefTaskType.COOK) {
+            restaurant.getStaff(Chef.class).prepareOrder(target.order());
             events.add("Chef advances " + target.getId() + "'s " + target.order().getMenuItem().getName()
                     + " (" + target.order().unitsDone() + "/" + target.order().getMenuItem().getPrepUnitsNeeded() + ").");
         } else {
-            chef.waitTurn();
+            restaurant.getStaff(Chef.class).waitTurn();
             events.add("Chef waits.");
         }
         phase = TurnPhase.RESOLVING;
@@ -193,7 +166,7 @@ public class TurnController {
         Customer paying = restaurant.oldestPaymentCandidate(currentTurn);
         if (paying != null) {
             paymentRecord = new PaymentRecord(paying.getId(), paying.order().lockedPriceCents(), paying.getSatisfaction());
-            cashier.processPayment(paying, paying.order(), restaurant);
+            restaurant.getStaff(Cashier.class).processPayment(paying, paying.order(), restaurant);
             events.add(paymentRecord.customerId() + " pays " + money(paymentRecord.lockedPriceCents()) + ".");
         }
         resolutionStep = 4;
@@ -227,6 +200,10 @@ public class TurnController {
         requirePhase(TurnPhase.RESOLVING);
         if (resolutionStep != expected) throw new IllegalStateException("Turn step out of sequence");
     }
+    private Customer customerForWaiterChoice(WaiterChoiceDTO decision) {
+        return decision.taskType() == WaiterTaskType.SERVE
+                ? customerForOrder(decision.targetId()) : customerForOrdinal(decision.targetId());
+    }
     private Customer customerForOrdinal(int ordinal) {
         return restaurant.customers().stream().filter(c -> c.arrivalOrdinal() == ordinal).findFirst().orElse(null);
     }
@@ -235,12 +212,12 @@ public class TurnController {
                 .map(Order::getCustomer).findFirst().orElse(null);
     }
 
-    private String waiterError(WaiterDecision decision) {
-        if (waiter.hasActed()) return "The Waiter has already acted this turn.";
+    private String waiterError(WaiterChoiceDTO decision) {
+        if (acceptedWaiter != null || restaurant.getStaff(Waiter.class).hasActed()) return "The Waiter has already acted this turn.";
         if (decision == null || decision.taskType() == null) return "Choose a Waiter task.";
-        Customer target = findCustomer(decision.targetCustomerId());
+        Customer target = customerForWaiterChoice(decision);
         return switch (decision.taskType()) {
-            case WAIT -> decision.targetCustomerId() == null ? null : "Wait has no target.";
+            case WAIT -> null;
             case SEAT -> target == null || !restaurant.getWaitingQueue().getQueuedCustomers().contains(target)
                     ? "Choose a customer in the queue."
                     : restaurant.getTables().stream().noneMatch(t -> !t.isOccupied()) ? "No table is free." : null;
@@ -251,11 +228,11 @@ public class TurnController {
         };
     }
 
-    private String chefError(ChefDecision decision) {
-        if (!waiter.hasActed()) return "Choose the Waiter task before the Chef task.";
+    private String chefError(ChefChoiceDTO decision) {
+        if (acceptedWaiter == null) return "Choose the Waiter task before the Chef task.";
         if (decision == null || decision.taskType() == null) return "Choose a Chef task.";
-        Customer target = findCustomer(decision.targetCustomerId());
-        if (decision.taskType() == ChefTaskType.WAIT) return decision.targetCustomerId() == null ? null : "Wait has no target.";
+        Customer target = customerForOrder(decision.targetOrderId());
+        if (decision.taskType() == ChefTaskType.WAIT) return null;
         return target == null || target.order() == null
                 || (target.order().getStatus() != OrderStatus.PENDING && target.order().getStatus() != OrderStatus.IN_PREPARATION)
                 ? "Choose a customer with an order that is not ready." : null;
@@ -272,27 +249,29 @@ public class TurnController {
                     table == null ? null : table.tableId(), queueIndex < 0 ? null : queueIndex + 1);
         }).toList();
         var orders = restaurant.customers().stream().filter(c -> c.order() != null).map(c ->
-                new GameSnapshot.OrderView("order-" + c.getId(), c.getId(), c.order().getMenuItem().getName(), c.order().getStatus(),
+                new GameSnapshot.OrderView(c.order().getOrderId(), c.getId(), c.order().getMenuItem().getName(), c.order().getStatus(),
                         c.order().unitsDone(), c.order().getMenuItem().getPrepUnitsNeeded(), c.order().lockedPriceCents())).toList();
         List<GameSnapshot.WaiterAction> waiterActions = new ArrayList<>();
-        List<ChefDecision> chefActions = new ArrayList<>();
+        List<ChefChoiceDTO> chefActions = new ArrayList<>();
         if (turnStarted && phase == TurnPhase.MANAGER_CHOICES) {
             Integer nextTable = tables.stream().filter(t -> t.occupantId() == null).map(GameSnapshot.TableView::id).findFirst().orElse(null);
             for (WaiterTaskType task : WaiterTaskType.values()) {
                 if (task == WaiterTaskType.WAIT) continue;
                 for (Customer customer : restaurant.customers()) {
-                    var decision = new WaiterDecision(task, customer.getId());
+                    if (task == WaiterTaskType.SERVE && customer.order() == null) continue;
+                    int targetId = task == WaiterTaskType.SERVE ? customer.order().getOrderId() : customer.arrivalOrdinal();
+                    var decision = new WaiterChoiceDTO(task, targetId);
                     if (waiterError(decision) == null) waiterActions.add(new GameSnapshot.WaiterAction(decision,
-                            task == WaiterTaskType.SEAT ? nextTable : null));
+                            task == WaiterTaskType.SEAT ? nextTable : null, customer.getId()));
                 }
             }
-            var waiterWait = new WaiterDecision(WaiterTaskType.WAIT, null);
-            if (waiterError(waiterWait) == null) waiterActions.add(new GameSnapshot.WaiterAction(waiterWait, null));
-            for (Customer customer : restaurant.customers()) {
-                var decision = new ChefDecision(ChefTaskType.ADVANCE, customer.getId());
+            var waiterWait = new WaiterChoiceDTO(WaiterTaskType.WAIT, 0);
+            if (waiterError(waiterWait) == null) waiterActions.add(new GameSnapshot.WaiterAction(waiterWait, null, null));
+            for (Order order : restaurant.getActiveOrders()) {
+                var decision = new ChefChoiceDTO(ChefTaskType.COOK, order.getOrderId());
                 if (chefError(decision) == null) chefActions.add(decision);
             }
-            var chefWait = new ChefDecision(ChefTaskType.WAIT, null);
+            var chefWait = new ChefChoiceDTO(ChefTaskType.WAIT, 0);
             if (chefError(chefWait) == null) chefActions.add(chefWait);
         }
         double average = restaurant.getAverageSatisfaction();
@@ -311,10 +290,6 @@ public class TurnController {
                 error == null, error, result());
     }
 
-    private Customer findCustomer(String id) {
-        if (id == null) return null;
-        return restaurant.customers().stream().filter(c -> c.getId().equalsIgnoreCase(id)).findFirst().orElse(null);
-    }
     private void requirePhase(TurnPhase expected) { if (phase != expected) throw new IllegalStateException("Unexpected turn phase: " + phase); }
     public static String money(int cents) { return String.format(java.util.Locale.ROOT, "$%.2f", cents / 100.0); }
 }

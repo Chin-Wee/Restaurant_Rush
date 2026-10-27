@@ -64,7 +64,7 @@ public final class RestaurantScreen {
     private final RestaurantScene scene;
     private RestaurantUiState uiState;
     private ComboBox<WaiterAction> waiterChoices;
-    private ComboBox<ChefDecision> chefChoices;
+    private ComboBox<ChefChoiceDTO> chefChoices;
 
     public RestaurantScreen(RestaurantScene scene, RestaurantUiState initialState,
             Consumer<RestaurantUiState.Command> commandSink) {
@@ -118,7 +118,7 @@ public final class RestaurantScreen {
     /** Apply the controller's next immutable snapshot after a command is handled. */
     public void setUiState(RestaurantUiState nextState) {
         WaiterAction previousWaiterChoice = waiterChoices == null ? null : waiterChoices.getValue();
-        ChefDecision previousChefChoice = chefChoices == null ? null : chefChoices.getValue();
+        ChefChoiceDTO previousChefChoice = chefChoices == null ? null : chefChoices.getValue();
         if (uiState == null) scene.showSnapshot(nextState.snapshot());
         uiState = Objects.requireNonNull(nextState);
         renderTopHud();
@@ -183,7 +183,7 @@ public final class RestaurantScreen {
         return label;
     }
 
-    private void renderGameplayPanel(WaiterAction previousWaiterChoice, ChefDecision previousChefChoice) {
+    private void renderGameplayPanel(WaiterAction previousWaiterChoice, ChefChoiceDTO previousChefChoice) {
         gameplayPanel.getChildren().clear();
         if (uiState.complete()) {
             gameplayPanel.getChildren().add(resultView(uiState.snapshot(), uiState.lastTurn().resolution().result()));
@@ -268,7 +268,7 @@ public final class RestaurantScreen {
         return card("WAITER", scrollable(content));
     }
 
-    private Node chefCard(ChefDecision previousChoice) {
+    private Node chefCard(ChefChoiceDTO previousChoice) {
         VBox content = new VBox(3);
         chefChoices = choiceBox("Choose available Chef task", uiState.snapshot().chefActions(), this::chefLabel);
         chefChoices.setId("chef-actions");
@@ -277,7 +277,7 @@ public final class RestaurantScreen {
         submit.setId("chef-submit");
         submit.disableProperty().bind(chefChoices.valueProperty().isNull());
         submit.setOnAction(event -> {
-            ChefDecision choice = chefChoices.getValue();
+            ChefChoiceDTO choice = chefChoices.getValue();
             if (choice != null) {
                 commandSink.accept(new ChefCommand(choice));
             }
@@ -297,20 +297,20 @@ public final class RestaurantScreen {
     }
 
     private String waiterLabel(WaiterAction action) {
-        WaiterDecision d = action.decision();
+        WaiterChoiceDTO d = action.decision();
         return switch (d.taskType()) {
-            case SEAT -> "Seat " + d.targetCustomerId() + " at Table " + action.tableId();
-            case TAKE_ORDER -> "Take " + d.targetCustomerId() + "'s order";
-            case SERVE -> "Serve " + d.targetCustomerId() + "'s order";
+            case SEAT -> "Seat " + action.customerId() + " at Table " + action.tableId();
+            case TAKE_ORDER -> "Take " + action.customerId() + "'s order";
+            case SERVE -> "Serve " + action.customerId() + "'s order";
             case WAIT -> "Wait";
         };
     }
 
-    private String chefLabel(ChefDecision decision) {
+    private String chefLabel(ChefChoiceDTO decision) {
         if (decision.taskType() == ChefTaskType.WAIT) return "Wait";
-        String item = uiState.snapshot().orders().stream().filter(o -> o.customerId().equals(decision.targetCustomerId()))
-                .findFirst().orElseThrow().item();
-        return "Advance " + decision.targetCustomerId() + "'s " + item;
+        var order = uiState.snapshot().orders().stream().filter(o -> o.id() == decision.targetOrderId())
+                .findFirst().orElseThrow();
+        return "Advance " + order.customerId() + "'s " + order.item();
     }
 
     private static <T> ComboBox<T> choiceBox(String prompt, List<T> choices,

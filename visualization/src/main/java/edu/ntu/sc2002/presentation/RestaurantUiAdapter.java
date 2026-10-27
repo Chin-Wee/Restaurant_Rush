@@ -1,20 +1,20 @@
 package edu.ntu.sc2002.presentation;
 
-import edu.ntu.sc2002.application.GameController;
+import edu.ntu.sc2002.application.TurnController;
 import edu.ntu.sc2002.application.contract.*;
 import edu.ntu.sc2002.presentation.RestaurantUiState.*;
 import java.util.Objects;
 
 /** UI session orchestration only. The controller validates and executes every game action. */
 public final class RestaurantUiAdapter {
-    private final GameController controller;
+    private final TurnController controller;
     private GameSnapshot turnStart;
-    private WaiterDecision acceptedWaiter;
-    private ChefDecision pendingChef;
+    private GameSnapshot.WaiterAction acceptedWaiter;
+    private ChefChoiceDTO pendingChef;
     private ResolvedTurn lastTurn;
     private RestaurantUiState state;
 
-    public RestaurantUiAdapter(GameController controller) { this.controller = Objects.requireNonNull(controller); }
+    public RestaurantUiAdapter(TurnController controller) { this.controller = Objects.requireNonNull(controller); }
 
     public RestaurantUiState start() {
         if (state != null) throw new IllegalStateException("Session already started");
@@ -33,10 +33,11 @@ public final class RestaurantUiAdapter {
         GameSnapshot snapshot = state().snapshot();
         if (snapshot.phase() == TurnPhase.GAME_OVER) return reject("Game complete.");
         if (command instanceof WaiterCommand waiter) {
-            if (snapshot.waiterActions().stream().noneMatch(a -> a.decision().equals(waiter.decision()))) return reject("Choose an available Waiter task.");
+            var action = snapshot.waiterActions().stream().filter(a -> a.decision().equals(waiter.decision())).findFirst().orElse(null);
+            if (action == null) return reject("Choose an available Waiter task.");
             TurnResolution response = controller.submitWaiterDecision(waiter.decision());
             if (!response.isSuccessful()) return reject(response.errorMessage());
-            acceptedWaiter = waiter.decision();
+            acceptedWaiter = action;
             return refresh(new Feedback("Waiter task selected. Choose the Chef task, then Resolve Turn.", false));
         }
         if (command instanceof ChefCommand chef) {

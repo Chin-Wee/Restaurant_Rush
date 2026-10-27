@@ -7,7 +7,7 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 import edu.ntu.sc2002.ui.RestaurantScreen;
 import edu.ntu.sc2002.application.GameConfig;
-import edu.ntu.sc2002.application.GameController;
+import edu.ntu.sc2002.application.TurnController;
 import edu.ntu.sc2002.presentation.RestaurantUiAdapter;
 import edu.ntu.sc2002.ui.scene.RestaurantScene;
 import edu.ntu.sc2002.ui.StartMenuScreen;
@@ -33,7 +33,7 @@ public class App extends Application {
         final long selectedSeed = seed;
         Runnable openRestaurant = () -> {
             room = new RestaurantScene();
-            RestaurantUiAdapter adapter = new RestaurantUiAdapter(new GameController(GameConfig.stageOne(selectedSeed)));
+            RestaurantUiAdapter adapter = new RestaurantUiAdapter(new TurnController(GameConfig.stageOne(selectedSeed)));
             restaurantScreen = new RestaurantScreen(room, adapter.start(),
                     command -> restaurantScreen.setUiState(adapter.handle(command)));
             stage.setScene(new Scene(restaurantScreen.getRoot(),

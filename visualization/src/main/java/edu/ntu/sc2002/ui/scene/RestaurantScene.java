@@ -91,7 +91,7 @@ public final class RestaurantScene {
     private final Map<String, Actor> actors = new LinkedHashMap<>();
     private Map<String, Placement> customerPlacements = Map.of();
     private final Set<String> exiting = new HashSet<>();
-    private final Map<String, Dish> dishes = new LinkedHashMap<>();
+    private final Map<Integer, Dish> dishes = new LinkedHashMap<>();
     private long previousAnimationNanos;
     private final AnimationTimer actorAnimation = new AnimationTimer() {
         @Override
@@ -177,7 +177,7 @@ public final class RestaurantScene {
             }
         }
         customerPlacements = targets;
-        Set<String> activeOrders = new HashSet<>();
+        Set<Integer> activeOrders = new HashSet<>();
         snapshot.orders().stream().filter(o -> o.status() == OrderStatus.READY || o.status() == OrderStatus.SERVED)
                 .forEach(order -> {
                     activeOrders.add(order.id());
@@ -191,13 +191,13 @@ public final class RestaurantScene {
     /** Called once per completed turn by the screen. No engine callbacks or revision counters. */
     public void playTurn(ResolvedTurn turn, GameSnapshot nextSnapshot) {
         showSnapshot(nextSnapshot);
-        Integer waiterTable = tableFor(turn.before(), turn.waiter().targetCustomerId());
-        if (waiterTable != null && turn.waiter().taskType() != WaiterTaskType.WAIT
-                && turn.waiter().taskType() != WaiterTaskType.SEAT) {
+        Integer waiterTable = tableFor(turn.before(), turn.waiter().customerId());
+        if (waiterTable != null && turn.waiter().decision().taskType() != WaiterTaskType.WAIT
+                && turn.waiter().decision().taskType() != WaiterTaskType.SEAT) {
             Tile chair = chairFor(waiterTable);
-            if (turn.waiter().taskType() == WaiterTaskType.SERVE) {
-                String orderId = turn.before().orders().stream()
-                        .filter(o -> o.customerId().equals(turn.waiter().targetCustomerId())).findFirst().orElseThrow().id();
+            if (turn.waiter().decision().taskType() == WaiterTaskType.SERVE) {
+                int orderId = turn.before().orders().stream()
+                        .filter(o -> o.customerId().equals(turn.waiter().customerId())).findFirst().orElseThrow().id();
                 Dish dish = dishes.computeIfAbsent(orderId, id -> new Dish(waiterTable));
                 waiter.walkTo(counterApproach(chair), () -> {
                     if (dishes.get(orderId) == dish) dish.place = DishPlace.CARRIED;
@@ -209,8 +209,8 @@ public final class RestaurantScene {
                 waiter.walkTo(new Tile(chair.column - 1, chair.row), null);
             }
         }
-        Integer chefTable = tableFor(turn.before(), turn.chef().targetCustomerId());
-        if (chefTable != null && turn.chef().taskType() == ChefTaskType.ADVANCE) {
+        Integer chefTable = tableFor(turn.before(), turn.chefCustomerId());
+        if (chefTable != null && turn.chef().taskType() == ChefTaskType.COOK) {
             chef.walkTo(STOVE_APPROACH, null);
             chef.walkTo(DISH_SPOTS[chefTable - 1], null);
             chef.walkTo(STOVE_APPROACH, null);
@@ -241,7 +241,7 @@ public final class RestaurantScene {
         Map<String, Placement> targets = new LinkedHashMap<>();
         String[] people = {"bob", "adam", "amelia"};
         for (GameSnapshot.CustomerView customer : snapshot.customers()) {
-            if (customer.state() == CustomerState.PAID || customer.state() == CustomerState.LEFT) continue;
+            if (customer.state() == CustomerState.PAID || customer.state() == CustomerState.ABANDONED) continue;
             Tile target = customer.tableId() != null ? chairFor(customer.tableId())
                     : new Tile(Math.max(0, Objects.requireNonNull(customer.queuePosition()) - 1), CUSTOMER_SPAWN.row);
             targets.put(customer.id(), new Placement(people[Math.floorMod(customer.arrivalOrdinal() - 1, people.length)],

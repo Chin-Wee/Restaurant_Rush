@@ -1,6 +1,7 @@
 package edu.ntu.sc2002.domain.customer;
 
 import edu.ntu.sc2002.domain.Order;
+import edu.ntu.sc2002.domain.OrderStatus;
 import edu.ntu.sc2002.domain.menu.Menu;
 import edu.ntu.sc2002.domain.menu.MenuItem;
 import java.util.Objects;
@@ -11,14 +12,14 @@ public final class Customer {
     private final String id;
     private int satisfaction = 100;
     private CustomerState state = CustomerState.QUEUED;
-    private final int arrivalOrdinal;
+    private int arrivalOrdinal;
     private final long choiceSeed;
     private Order order;
     private Integer readyToPayTurn;
 
-    public Customer(String id) { this(id, 1, 2026); }
+    public Customer(String id) { this(id, 0, 2026); }
     public Customer(String id, int arrivalOrdinal, long choiceSeed) {
-        if (id == null || id.isBlank() || arrivalOrdinal < 1) throw new IllegalArgumentException("Invalid customer identity");
+        if (id == null || id.isBlank() || arrivalOrdinal < 0) throw new IllegalArgumentException("Invalid customer identity");
         this.id = id;
         this.arrivalOrdinal = arrivalOrdinal;
         this.choiceSeed = choiceSeed;
@@ -39,7 +40,12 @@ public final class Customer {
                 if (state != CustomerState.QUEUED) throw new IllegalStateException("Customer cannot be seated");
                 state = next;
             }
-            case EATING -> serveOrder(requireOrder().currentTurn());
+            case EATING -> {
+                if (state != CustomerState.SEATED || requireOrder().getStatus() != OrderStatus.SERVED) {
+                    throw new IllegalStateException("Customer must be served before eating");
+                }
+                state = next;
+            }
             case READY_TO_PAY -> {
                 int turn = requireOrder().currentTurn();
                 if (state != CustomerState.EATING || order.servedTurn() >= turn) {
@@ -61,6 +67,13 @@ public final class Customer {
     }
 
     public int arrivalOrdinal() { return arrivalOrdinal; }
+    /** Assign arrival order once; zero denotes a customer not yet registered. */
+    public void recordArrival(int ordinal) {
+        if (ordinal < 1 || (arrivalOrdinal != 0 && arrivalOrdinal != ordinal)) {
+            throw new IllegalArgumentException("Arrival order is already assigned or invalid");
+        }
+        arrivalOrdinal = ordinal;
+    }
     public Order order() { return order; }
     public MenuItem chooseItem(Menu menu) {
         var items = Objects.requireNonNull(menu).getItems();
@@ -70,7 +83,8 @@ public final class Customer {
     public boolean isWaitingForTableOrFood() { return state == CustomerState.QUEUED || state == CustomerState.SEATED; }
     public void placeOrder(Order placed) {
         Objects.requireNonNull(placed);
-        if (state != CustomerState.SEATED || order != null || placed.getCustomer() != this) {
+        if (state != CustomerState.SEATED || order != null || placed.getCustomer() != this
+                || placed.getStatus() != OrderStatus.PENDING) {
             throw new IllegalStateException("Customer cannot place this order");
         }
         order = placed;
@@ -78,7 +92,7 @@ public final class Customer {
     public void serveOrder(int turn) {
         if (state != CustomerState.SEATED || order == null) throw new IllegalStateException("Customer cannot be served");
         order.serve(turn);
-        state = CustomerState.EATING;
+        setState(CustomerState.EATING);
     }
     public void finishEating(int turn) {
         if (state == CustomerState.EATING && order.servedTurn() < turn) {

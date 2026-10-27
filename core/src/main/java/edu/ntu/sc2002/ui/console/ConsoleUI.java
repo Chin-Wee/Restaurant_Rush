@@ -1,8 +1,4 @@
 package edu.ntu.sc2002.ui.console;
-import edu.ntu.sc2002.domain.staff.Waiter;
-import edu.ntu.sc2002.domain.customer.Customer;
-import edu.ntu.sc2002.domain.staff.Chef;
-import edu.ntu.sc2002.domain.Restaurant;
 
 import edu.ntu.sc2002.application.*;
 import edu.ntu.sc2002.application.contract.*;
@@ -14,12 +10,12 @@ import java.util.Scanner;
 /** Reads typed commands and displays immutable results from the controller. */
 public final class ConsoleUI {
     private final Scanner input;
-    private final GameController controller;
+    private final TurnController controller;
     private int displayedEvents;
 
-    public ConsoleUI() { this(new GameController()); }
-    public ConsoleUI(GameController controller) { this(new Scanner(System.in), controller); }
-    public ConsoleUI(Scanner input, GameController controller) {
+    public ConsoleUI() { this(new TurnController()); }
+    public ConsoleUI(TurnController controller) { this(new Scanner(System.in), controller); }
+    public ConsoleUI(Scanner input, TurnController controller) {
         this.input = input;
         this.controller = controller;
     }
@@ -48,18 +44,18 @@ public final class ConsoleUI {
     public void promptManagerChoices() {
         TurnResolution response;
         do {
-            response = controller.submitWaiterDecision(readWaiterDecision());
+            response = controller.submitWaiterDecision(readWaiterChoice());
             if (!response.isSuccessful()) displayError(response.errorMessage());
         } while (!response.isSuccessful());
         // Show the customer's chosen food before asking for the Chef's task.
         displayEvents(response);
         do {
-            response = controller.submitChefDecision(readChefDecision());
+            response = controller.submitChefDecision(readChefChoice());
             if (!response.isSuccessful()) displayError(response.errorMessage());
         } while (!response.isSuccessful());
     }
 
-    private WaiterDecision readWaiterDecision() {
+    private WaiterChoiceDTO readWaiterChoice() {
         while (true) {
             System.out.println("Waiter task [1 seat, 2 take order, 3 serve, 4 wait]:");
             WaiterTaskType task = switch (readNumber()) {
@@ -70,25 +66,41 @@ public final class ConsoleUI {
                 default -> null;
             };
             if (task == null) { displayError("Choose 1–4."); continue; }
-            return new WaiterDecision(task, task == WaiterTaskType.WAIT ? null : promptCustomer());
+            if (task == WaiterTaskType.WAIT) return new WaiterChoiceDTO(task, 0);
+            String id = promptCustomer();
+            GameSnapshot snapshot = controller.snapshot();
+            var customer = snapshot.customers().stream().filter(c -> c.id().equalsIgnoreCase(id)).findFirst().orElse(null);
+            if (customer == null) { displayError("Unknown customer ID."); continue; }
+            int targetId = customer.arrivalOrdinal();
+            if (task == WaiterTaskType.SERVE) {
+                var order = snapshot.orders().stream().filter(o -> o.customerId().equals(customer.id())).findFirst().orElse(null);
+                if (order == null) { displayError("That customer has no order."); continue; }
+                targetId = order.id();
+            }
+            return new WaiterChoiceDTO(task, targetId);
         }
     }
 
-    private ChefDecision readChefDecision() {
+    private ChefChoiceDTO readChefChoice() {
         while (true) {
             System.out.println("Chef task [1 advance order, 2 wait]:");
             int option = readNumber();
-            if (option == 2) return new ChefDecision(ChefTaskType.WAIT, null);
+            if (option == 2) return new ChefChoiceDTO(ChefTaskType.WAIT, 0);
             if (option != 1) { displayError("Choose 1 or 2."); continue; }
-            var advanceable = controller.snapshot().chefActions().stream().filter(d -> d.taskType() == ChefTaskType.ADVANCE).map(ChefDecision::targetCustomerId).toList();
+            GameSnapshot snapshot = controller.snapshot();
+            var advanceable = snapshot.chefActions().stream().filter(d -> d.taskType() == ChefTaskType.COOK)
+                    .map(d -> snapshot.orders().stream().filter(o -> o.id() == d.targetOrderId()).findFirst().orElseThrow().customerId()).toList();
             if (advanceable.isEmpty()) { displayError("No order can be advanced."); continue; }
             System.out.println("Advance which customer order? " + advanceable);
-            return new ChefDecision(ChefTaskType.ADVANCE, input.nextLine().trim());
+            String id = input.nextLine().trim();
+            var order = snapshot.orders().stream().filter(o -> o.customerId().equalsIgnoreCase(id)).findFirst().orElse(null);
+            if (order == null) { displayError("No order belongs to that customer."); continue; }
+            return new ChefChoiceDTO(ChefTaskType.COOK, order.id());
         }
     }
 
     private String promptCustomer() {
-        System.out.println("Customer ID? " + controller.snapshot().customers().stream().filter(c -> c.state() != edu.ntu.sc2002.domain.customer.CustomerState.PAID && c.state() != edu.ntu.sc2002.domain.customer.CustomerState.LEFT).map(GameSnapshot.CustomerView::id).toList());
+        System.out.println("Customer ID? " + controller.snapshot().customers().stream().filter(c -> c.state() != edu.ntu.sc2002.domain.customer.CustomerState.PAID && c.state() != edu.ntu.sc2002.domain.customer.CustomerState.ABANDONED).map(GameSnapshot.CustomerView::id).toList());
         return input.nextLine().trim();
     }
 
@@ -109,7 +121,7 @@ public final class ConsoleUI {
     public void displayTurnStart(GameSnapshot snapshot) {
         displayedEvents = 0;
         System.out.printf("%nTURN %d | Revenue %s | Average paid satisfaction %s%n",
-                snapshot.turn(), GameController.money(snapshot.revenueCents()), satisfaction(snapshot.averagePaidSatisfaction()));
+                snapshot.turn(), TurnController.money(snapshot.revenueCents()), satisfaction(snapshot.averagePaidSatisfaction()));
         System.out.println("Queue: " + snapshot.waitingQueue());
         snapshot.tables().forEach(t -> System.out.println("Table " + t.id() + ": " + (t.occupantId() == null ? "Available" : t.occupantId())));
         snapshot.customers().forEach(c -> System.out.println(c.id() + " " + c.state() + " satisfaction " + c.satisfaction()
@@ -121,9 +133,11 @@ public final class ConsoleUI {
 
     private static java.util.List<String> staffTasks(GameSnapshot snapshot) {
         java.util.List<String> labels = new java.util.ArrayList<>();
-        snapshot.waiterActions().forEach(a -> labels.add("Waiter " + a.decision().taskType() + ": " + a.decision().targetCustomerId()));
+        snapshot.waiterActions().forEach(a -> labels.add("Waiter " + a.decision().taskType() + ": " + a.customerId()));
         if (snapshot.chefActions().isEmpty()) labels.add("Chef: choices follow the Waiter task");
-        snapshot.chefActions().forEach(a -> labels.add("Chef " + a.taskType() + ": " + a.targetCustomerId()));
+        snapshot.chefActions().forEach(a -> labels.add("Chef " + a.taskType() + ": "
+                + (a.taskType() == ChefTaskType.WAIT ? "null" : snapshot.orders().stream()
+                        .filter(o -> o.id() == a.targetOrderId()).findFirst().orElseThrow().customerId())));
         return labels;
     }
 
@@ -133,14 +147,14 @@ public final class ConsoleUI {
         displayEvents(resolution);
         GameSnapshot s = controller.snapshot();
         System.out.printf("End turn %d: served %d | paid %d | departures %d | revenue %s | average paid satisfaction %s | turns used %d%n",
-                resolution.turn(), s.servedCount(), s.paidCount(), s.unhappyDepartures(), GameController.money(s.revenueCents()),
+                resolution.turn(), s.servedCount(), s.paidCount(), s.unhappyDepartures(), TurnController.money(s.revenueCents()),
                 satisfaction(s.averagePaidSatisfaction()), s.turnsUsed());
     }
 
     public void displayEndGameResult(GameResult result) {
         GameSnapshot s = controller.snapshot();
         System.out.printf("%n%s — served %d, paid %d, departures %d, revenue %s, average paid satisfaction %s, turns used %d%n",
-                result, s.servedCount(), s.paidCount(), s.unhappyDepartures(), GameController.money(s.revenueCents()),
+                result, s.servedCount(), s.paidCount(), s.unhappyDepartures(), TurnController.money(s.revenueCents()),
                 satisfaction(s.averagePaidSatisfaction()), s.turnsUsed());
     }
 }

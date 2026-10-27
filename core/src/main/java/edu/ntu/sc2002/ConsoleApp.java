@@ -1,7 +1,7 @@
 package edu.ntu.sc2002;
 
 import edu.ntu.sc2002.application.GameConfig;
-import edu.ntu.sc2002.application.GameController;
+import edu.ntu.sc2002.application.TurnController;
 import edu.ntu.sc2002.ui.console.ConsoleUI;
 
 public final class ConsoleApp {
@@ -9,7 +9,7 @@ public final class ConsoleApp {
 
     public static void main(String[] args) {
         if (args.length > 1) {
-            System.err.println("Usage: java -cp target/classes edu.ntu.sc2002.ConsoleApp [integer seed]");
+            System.err.println("Usage: java -cp core/target/classes edu.ntu.sc2002.ConsoleApp [integer seed]");
             return;
         }
         final long seed;
@@ -19,6 +19,6 @@ public final class ConsoleApp {
             System.err.println("Seed must be a 64-bit integer.");
             return;
         }
-        new ConsoleUI(new GameController(GameConfig.stageOne(seed))).run();
+        new ConsoleUI(new TurnController(GameConfig.stageOne(seed))).run();
     }
 }
