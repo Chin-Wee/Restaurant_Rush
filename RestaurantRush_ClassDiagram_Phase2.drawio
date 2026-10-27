@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram id="VMKm_Yt5Gzj-tNP3JUJF" name="Page-1">
-        <mxGraphModel dx="-1053" dy="-1540" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+        <mxGraphModel dx="-588" dy="-1065" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -609,7 +609,7 @@
                 <mxCell id="YfHrBVvGFm67AOxr1n-q-924" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=32;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;html=1;whiteSpace=wrap;rounded=0;shadow=0;fillColor=#ffe6cc;swimlaneFillColor=#ffffff;strokeColor=#d79b00;fontColor=#1A1A1A;strokeWidth=1;fontFamily=Helvetica;fontStyle=1;fontSize=12;align=center;verticalAlign=middle;" value="ChefChoiceDTO" vertex="1">
                     <mxGeometry height="150" width="330" x="4585" y="3392" as="geometry"/>
                 </mxCell>
-                <mxCell id="YfHrBVvGFm67AOxr1n-q-925" parent="YfHrBVvGFm67AOxr1n-q-924" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;fontFamily=Helvetica;" value="- isCooking: boolean" vertex="1">
+                <mxCell id="YfHrBVvGFm67AOxr1n-q-925" parent="YfHrBVvGFm67AOxr1n-q-924" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;fontFamily=Helvetica;" value="&lt;span style=&quot;color: rgb(51, 51, 51);&quot;&gt;- taskType: ChefTaskType&lt;/span&gt;" vertex="1">
                     <mxGeometry height="22" width="330" y="32" as="geometry"/>
                 </mxCell>
                 <mxCell id="YfHrBVvGFm67AOxr1n-q-926" parent="YfHrBVvGFm67AOxr1n-q-924" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;fontFamily=Helvetica;" value="- targetOrderId: int" vertex="1">
@@ -618,10 +618,10 @@
                 <mxCell id="YfHrBVvGFm67AOxr1n-q-927" parent="YfHrBVvGFm67AOxr1n-q-924" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=#9E9E9E;" value="" vertex="1">
                     <mxGeometry height="8" width="330" y="76" as="geometry"/>
                 </mxCell>
-                <mxCell id="YfHrBVvGFm67AOxr1n-q-928" parent="YfHrBVvGFm67AOxr1n-q-924" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;fontFamily=Helvetica;" value="+ ChefChoiceDTO(isCooking: boolean, targetOrderId: int)" vertex="1">
+                <mxCell id="YfHrBVvGFm67AOxr1n-q-928" parent="YfHrBVvGFm67AOxr1n-q-924" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;fontFamily=Helvetica;" value="&lt;span style=&quot;color: rgb(51, 51, 51);&quot;&gt;+ ChefChoiceDTO(taskType: ChefTaskType, targetOrderId: int)&lt;/span&gt;" vertex="1">
                     <mxGeometry height="22" width="330" y="84" as="geometry"/>
                 </mxCell>
-                <mxCell id="YfHrBVvGFm67AOxr1n-q-929" parent="YfHrBVvGFm67AOxr1n-q-924" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;fontFamily=Helvetica;" value="+ isCooking(): boolean" vertex="1">
+                <mxCell id="YfHrBVvGFm67AOxr1n-q-929" parent="YfHrBVvGFm67AOxr1n-q-924" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;fontFamily=Helvetica;" value="&lt;span style=&quot;color: rgb(51, 51, 51);&quot;&gt;+ getTaskType(): ChefTaskType&lt;/span&gt;" vertex="1">
                     <mxGeometry height="22" width="330" y="106" as="geometry"/>
                 </mxCell>
                 <mxCell id="YfHrBVvGFm67AOxr1n-q-930" parent="YfHrBVvGFm67AOxr1n-q-924" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;fontFamily=Helvetica;" value="+ getTargetOrderId(): int" vertex="1">
@@ -747,6 +747,15 @@
                 </mxCell>
                 <mxCell id="YfHrBVvGFm67AOxr1n-q-968" parent="YfHrBVvGFm67AOxr1n-q-965" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;fontFamily=Helvetica;" value="CRITIC" vertex="1">
                     <mxGeometry height="22" width="380" y="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="YfHrBVvGFm67AOxr1n-q-976" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=46;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;html=1;whiteSpace=wrap;rounded=0;shadow=0;fillColor=#f8cecc;swimlaneFillColor=#ffffff;strokeColor=#b85450;fontColor=#1A1A1A;strokeWidth=1;fontFamily=Helvetica;fontStyle=0;fontSize=12;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-size:10px;font-style:italic;font-weight:normal;&quot;&gt;«enumeration»&lt;/span&gt;&lt;br&gt;&lt;b&gt;ChefTaskType&lt;/b&gt;" vertex="1">
+                    <mxGeometry height="90" width="330" x="2580" y="2810" as="geometry"/>
+                </mxCell>
+                <mxCell id="YfHrBVvGFm67AOxr1n-q-977" parent="YfHrBVvGFm67AOxr1n-q-976" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;fontFamily=Helvetica;" value="COOK" vertex="1">
+                    <mxGeometry height="22" width="330" y="46" as="geometry"/>
+                </mxCell>
+                <mxCell id="YfHrBVvGFm67AOxr1n-q-978" parent="YfHrBVvGFm67AOxr1n-q-976" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;fontFamily=Helvetica;" value="WAIT" vertex="1">
+                    <mxGeometry height="22" width="330" y="68" as="geometry"/>
                 </mxCell>
             </root>
         </mxGraphModel>
