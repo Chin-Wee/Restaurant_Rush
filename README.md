@@ -1,31 +1,55 @@
 # Restaurant Rush
 
-JavaFX pixel-art restaurant game. The current build opens with an animated start menu; Start Game opens the restaurant UI preview. Displayed game values are fixtures; character movement is scene testing only. No turn engine is connected.
+JavaFX pixel-art restaurant game for SC2002.
 
-## Run on macOS
+## Setup
 
-Install JDK 17, then run from the project directory:
+Install **JDK 17** no need to install Maven or JavaFX handled on project
 
-```sh
-./mvnw javafx:run
+- **Mac:** `brew install openjdk@17`
+- **Windows:** download [Adoptium Temurin 17](https://adoptium.net/temurin/releases/?os=windows&version=17), tick "Add to PATH" during install
+
+Check it works:
+
+```
+java -version
 ```
 
-The first run downloads Maven and the JavaFX dependencies.
+Should show `17.x.x`.
 
-## Architecture
+## Run (GUI)
 
-`App` wires the window; `ui/RestaurantScreen` owns the blank JavaFX view. This branch contains no game engine or visualization assets.
+**Mac / Linux:**
 
-See [package boundaries](docs/Architecture.md) for the shared target layout. Only create future application/domain files when implementing their UML responsibilities. The visualization branch implements its own UI, presentation state and preview packages separately.
+```sh
+./mvnw -Pvisualization clean install
+./mvnw -f visualization/pom.xml javafx:run
+```
 
-Diagrams and their existing notes are in [docs/uml](docs/uml/): [class diagram](docs/uml/RestaurantRush_ClassDiagram.drawio), [sequence diagram](docs/uml/RestaurantRush_SequenceDiagram.drawio), and [design notes](docs/uml/DesignNotes.md).
+**Windows:**
 
-## Asset credits and licenses
+```powershell
+.\mvnw.cmd -Pvisualization clean install
+.\mvnw.cmd -f visualization\pom.xml javafx:run
+```
 
-- City 2 pixel-art backgrounds are from Craftpix. The supplied free license is for non-commercial use only; keep the included `Assets/craftpix-net-322807-free-city-backgrounds-pixel-art/License.txt` with the project.
-- Character sprites are from the Modern tiles free pack. The included `Assets/Modern tiles_Free/LICENSE.txt` limits the pack to non-commercial use; its copy beside the split sprites is `src/main/resources/characters/LICENSE.txt`.
-- Friendly Scribbles font by @kmlgames (used with attribution).
+## Run (CLI)
 
-## Architecture
+```sh
+./mvnw clean install
+java -cp core/target/classes edu.ntu.sc2002.ConsoleApp
+```
 
-See [package boundaries](docs/Architecture.md) and the [UML](docs/uml/RestaurantRush_ClassDiagram.drawio).
+## Project structure
+
+```
+Restaurant_Rush/
+├── core/           ← game engine, domain model
+└── visualization/  ← JavaFX UI
+```
+
+## Asset credits
+
+- City 2 backgrounds — Craftpix (non-commercial)
+- Character sprites — Modern tiles free pack (non-commercial)
+- Friendly Scribbles font — @kmlgames
