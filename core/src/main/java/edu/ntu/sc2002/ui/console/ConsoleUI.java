@@ -28,9 +28,7 @@ public final class ConsoleUI {
                 displayTurnStart(controller.snapshot());
                 TurnResolution arrival = controller.processArrival();
                 displayEvents(arrival);
-                if (arrival.newArrival() != null) {
-                    System.out.println("Available after arrival: " + staffTasks(controller.snapshot()));
-                }
+                System.out.println("Available tasks: " + staffTasks(controller.snapshot()));
                 promptManagerChoices();
                 displayTurnSummary(controller.lastResolution());
             }
