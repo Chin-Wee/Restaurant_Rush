@@ -2,6 +2,7 @@ package edu.ntu.sc2002.ui.scene;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -9,12 +10,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.LinkedHashMap;
-import edu.ntu.sc2002.presentation.RestaurantUiState.SceneState;
-import edu.ntu.sc2002.presentation.RestaurantUiState.SceneCustomer;
+import edu.ntu.sc2002.application.contract.GameSnapshot;
+import edu.ntu.sc2002.application.contract.WaiterTaskType;
+import edu.ntu.sc2002.application.contract.ChefTaskType;
+import edu.ntu.sc2002.domain.OrderStatus;
+import edu.ntu.sc2002.domain.customer.CustomerState;
+import edu.ntu.sc2002.presentation.RestaurantUiState.ResolvedTurn;
 import java.util.Map;
 import java.util.Objects;
 import java.util.PriorityQueue;
-import java.util.Random;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -26,7 +30,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
+import edu.ntu.sc2002.ui.UiEffects;
 import javafx.scene.text.TextAlignment;
 
 
@@ -47,7 +51,7 @@ public final class RestaurantScene {
     private static final int KITCHEN_SOURCE_ROW = 10;
     private static final Set<String> CUSTOMER_PEOPLE = Set.of("adam", "amelia", "bob");
     private static final double WALK_TILES_PER_SECOND = 2.8;
-    private static final Font ACTOR_TAG_FONT = Font.font("System", FontWeight.BOLD, 13);
+    private static final Font ACTOR_TAG_FONT = UiEffects.font(16);
     private static final long WALK_FRAME_NANOS = 120_000_000L;
     private static final long IDLE_FRAME_NANOS = 400_000_000L;
     private static final Tile CUSTOMER_SPAWN = new Tile(0, 5);
@@ -60,7 +64,6 @@ public final class RestaurantScene {
     private static final String KITCHEN_TILE_PATH = "/Kitchen and more tileset [16x16]/split-16x16/tileset/";
 
     private final Pane root = new StackPane();
-    private final Random random = new Random();
     private final Canvas floorLayer = new Canvas();
     private final Canvas actorLayer = new Canvas();
     private final Canvas furnitureLayer = new Canvas();
@@ -86,11 +89,9 @@ public final class RestaurantScene {
     private final Actor cashier = new Actor(new Tile(14, 4), loadSingleDirection("amelia", "idle", "down", 6),
             null, null, Direction.DOWN);
     private final Map<String, Actor> actors = new LinkedHashMap<>();
-    private boolean previewMode;
-    private int waiterRevision;
-    private int chefRevision;
+    private Map<String, Placement> customerPlacements = Map.of();
+    private final Set<String> exiting = new HashSet<>();
     private final boolean[] dishesPlaced = new boolean[DISH_SPOTS.length];
-    private java.util.function.DoubleConsumer animationStep = delta -> {};
     private long previousAnimationNanos;
     private final AnimationTimer actorAnimation = new AnimationTimer() {
         @Override
@@ -98,8 +99,7 @@ public final class RestaurantScene {
             double delta = previousAnimationNanos == 0 ? 0
                     : Math.min((now - previousAnimationNanos) / 1_000_000_000.0, 0.1);
             previousAnimationNanos = now;
-            for (Actor actor : actors.values()) { actor.advance(delta); }
-            animationStep.accept(delta);
+            advanceActors(delta);
             drawActors(now);
             drawUi();
         }
@@ -109,6 +109,7 @@ public final class RestaurantScene {
         actors.put("chef", chef);
         actors.put("waiter", waiter);
         actors.put("cashier", cashier);
+        root.setMinSize(0, 0);
         root.setStyle("-fx-background-color: #252B3D;");
         floorLayer.setId("floor-layer");
         actorLayer.setId("actor-layer");
@@ -143,46 +144,93 @@ public final class RestaurantScene {
 
     public void dispose() { actorAnimation.stop(); previousAnimationNanos = 0; }
 
-    /** Explicitly opt into demonstration walkers and route markers. */
-    public void enablePreview() {
-        previewMode = true;
-        actors.put("customer", customer("bob", CUSTOMER_SPAWN));
-    }
-
     /** Reconcile visual targets only; no animation callback can change an engine snapshot. */
-    public void applyState(SceneState state) {
-        Map<String, Placement> targets = customerTargets(state);
-        actors.keySet().removeIf(id -> !Set.of("chef", "waiter", "cashier").contains(id) && !targets.containsKey(id));
-        for (var entry : targets.entrySet()) {
-            Placement placement = entry.getValue();
-            Actor actor = actors.computeIfAbsent(entry.getKey(), id -> customer(placement.person(), CUSTOMER_SPAWN));
-            actor.requestDestination(placement.tile(), placement.seated());
-        }
-        Arrays.fill(dishesPlaced, false);
-        for (int tableId : state.readyTableIds()) {
-            if (tableId >= 1 && tableId <= DINING_TABLE_COLUMNS.length) dishesPlaced[tableId - 1] = true;
-        }
-        if (state.waiterRevision() != waiterRevision) {
-            waiterRevision = state.waiterRevision();
-            if (state.waiterTableId() != null) {
-                Tile chair = chairFor(state.waiterTableId());
-                waiter.requestDestination(new Tile(chair.column - 1, chair.row), false);
+    public void showSnapshot(GameSnapshot snapshot) {
+        Map<String, Placement> targets = customerTargets(snapshot);
+        for (var entry : actors.entrySet()) {
+            String id = entry.getKey();
+            if (!Set.of("chef", "waiter", "cashier").contains(id) && !targets.containsKey(id) && exiting.add(id)) {
+                Actor guest = entry.getValue();
+                List<Tile> exitPath = new ArrayList<>(requirePath(guest.tile(), CUSTOMER_SPAWN));
+                exitPath.add(new Tile(-1, CUSTOMER_SPAWN.row));
+                guest.follow(exitPath, false);
             }
         }
-        if (state.chefRevision() != chefRevision) {
-            chefRevision = state.chefRevision();
-            chef.requestDestination(STOVE_APPROACH, false);
+        for (var entry : targets.entrySet()) {
+            String id = entry.getKey();
+            Placement placement = entry.getValue();
+            Actor guest = actors.computeIfAbsent(id, key -> customer(placement.person(), CUSTOMER_SPAWN));
+            if (placement.seated()) {
+                if (!placement.equals(customerPlacements.get(id))) {
+                    // Stardew Valley-style visual waypoints: meet the guest, then escort to the chair.
+                    guest.requestDestination(guest.tile(), false);
+                    waiter.walkTo(guest.tile(), () -> {
+                        if (placement.equals(customerPlacements.get(id))) {
+                            guest.requestDestination(placement.tile(), true);
+                            guest.walkDelay = 1.0;
+                        }
+                    });
+                    waiter.walkTo(new Tile(placement.tile().column - 1, placement.tile().row), null);
+                }
+            } else {
+                guest.requestDestination(placement.tile(), false);
+            }
         }
+        customerPlacements = targets;
+        Arrays.fill(dishesPlaced, false);
+        snapshot.orders().stream().filter(o -> o.status() == OrderStatus.READY).forEach(order -> {
+            Integer tableId = tableFor(snapshot, order.customerId());
+            if (tableId != null) dishesPlaced[tableId - 1] = true;
+        });
         drawFurniture();
     }
 
-    static Map<String, Placement> customerTargets(SceneState state) {
+    /** Called once per completed turn by the screen. No engine callbacks or revision counters. */
+    public void playTurn(ResolvedTurn turn, GameSnapshot nextSnapshot) {
+        showSnapshot(nextSnapshot);
+        Integer waiterTable = tableFor(turn.before(), turn.waiter().targetCustomerId());
+        if (waiterTable != null && turn.waiter().taskType() != WaiterTaskType.WAIT
+                && turn.waiter().taskType() != WaiterTaskType.SEAT) {
+            Tile chair = chairFor(waiterTable);
+            if (turn.waiter().taskType() == WaiterTaskType.SERVE) waiter.walkTo(counterApproach(chair), null);
+            waiter.walkTo(new Tile(chair.column - 1, chair.row), null);
+        }
+        Integer chefTable = tableFor(turn.before(), turn.chef().targetCustomerId());
+        if (chefTable != null && turn.chef().taskType() == ChefTaskType.ADVANCE) {
+            chef.walkTo(STOVE_APPROACH, null);
+            chef.walkTo(DISH_SPOTS[chefTable - 1], null);
+            chef.walkTo(STOVE_APPROACH, null);
+        }
+    }
+
+    private static Integer tableFor(GameSnapshot snapshot, String id) {
+        return snapshot.customers().stream().filter(c -> c.id().equals(id)).findFirst()
+                .map(GameSnapshot.CustomerView::tableId).orElse(null);
+    }
+
+    private static Tile counterApproach(Tile chair) {
+        int index = chair.column == DINING_TABLE_COLUMNS[0] - 1 ? 0 : 1;
+        return new Tile(DISH_SPOTS[index].column, KITCHEN_BOTTOM_ROW + 2);
+    }
+
+    /** Visual time only. Departure removes a sprite after it has crossed the room edge. */
+    private void advanceActors(double delta) {
+        for (Actor actor : actors.values()) actor.advance(delta);
+        actors.entrySet().removeIf(entry -> {
+            if (!exiting.contains(entry.getKey()) || entry.getValue().isMoving()) return false;
+            exiting.remove(entry.getKey());
+            return true;
+        });
+    }
+
+    private static Map<String, Placement> customerTargets(GameSnapshot snapshot) {
         Map<String, Placement> targets = new LinkedHashMap<>();
         String[] people = {"bob", "adam", "amelia"};
-        for (SceneCustomer customer : state.customers()) {
+        for (GameSnapshot.CustomerView customer : snapshot.customers()) {
+            if (customer.state() == CustomerState.PAID || customer.state() == CustomerState.LEFT) continue;
             Tile target = customer.tableId() != null ? chairFor(customer.tableId())
                     : new Tile(Math.max(0, Objects.requireNonNull(customer.queuePosition()) - 1), CUSTOMER_SPAWN.row);
-            targets.put(customer.id(), new Placement(people[Math.floorMod(customer.appearanceIndex(), people.length)],
+            targets.put(customer.id(), new Placement(people[Math.floorMod(customer.arrivalOrdinal() - 1, people.length)],
                     target, customer.tableId() != null));
         }
         return Map.copyOf(targets);
@@ -193,24 +241,7 @@ public final class RestaurantScene {
         return new Tile(DINING_TABLE_COLUMNS[tableId - 1] - 1, DINING_ROW);
     }
 
-    record Placement(String person, Tile tile, boolean seated) {}
-
-    /** Optional visual driver; never resolves gameplay turns. */
-    public void setAnimationStep(java.util.function.DoubleConsumer step) {
-        animationStep = Objects.requireNonNull(step);
-    }
-
-    public boolean isMoving(String id) { return actor(id).isMoving(); }
-    public void moveTo(String id, int column, int row, boolean sit) {
-        Actor actor = actor(id);
-        actor.follow(requirePath(actor.tile(), new Tile(column, row)), sit);
-    }
-    public void wander(String id) { wander(actor(id)); }
-    public void showDish(int index) { dishesPlaced[index] = true; drawFurniture(); }
-
-    private Actor actor(String id) {
-        return Objects.requireNonNull(actors.get(id), "Unknown visual actor: " + id);
-    }
+    private record Placement(String person, Tile tile, boolean seated) {}
 
     private static Image loadTile(String filename) {
         return new Image(Objects.requireNonNull(RestaurantScene.class.getResource(TILE_PATH + filename),
@@ -321,7 +352,7 @@ public final class RestaurantScene {
     }
 
     // Stardew Valley's PathFindController uses four-way A* with a Manhattan heuristic for tile routes.
-    static List<Tile> findPath(Tile start, Tile destination) {
+    private static List<Tile> findPath(Tile start, Tile destination) {
         if (!inside(start) || !inside(destination) || (!MOVEMENT_AREA[start.row][start.column]
                 && Arrays.stream(DINING_TABLE_COLUMNS).noneMatch(c -> start.column == c - 1 && start.row == DINING_ROW))) {
             return List.of();
@@ -381,28 +412,8 @@ public final class RestaurantScene {
         return Math.abs(left.column - right.column) + Math.abs(left.row - right.row);
     }
 
-    private void wander(Actor actor) {
-        if (actor.isMoving() || actor.seated) {
-            return;
-        }
-        // ponytail: test walkers avoid furniture only; add actor occupancy when collision-aware routes matter.
-        Tile start = actor.tile();
-        Tile destination;
-        List<Tile> path;
-        do {
-            destination = new Tile(random.nextInt(COLUMNS), FLOOR_TOP_ROW + random.nextInt(ROWS - FLOOR_TOP_ROW));
-            path = destination.equals(start) || !MOVEMENT_AREA[destination.row][destination.column]
-                    ? List.of() : findPath(start, destination);
-        } while (path.isEmpty());
-        actor.follow(path, false);
-    }
-
     private void drawActors(long now) {
         drawLayer(actorLayer, graphics -> {
-            if (previewMode) {
-                drawTarget(graphics, STOVE_APPROACH, Color.web("#F5C96B"));
-                for (Tile dishSpot : DISH_SPOTS) drawTarget(graphics, dishSpot, Color.web("#67D1B0"));
-            }
             for (Actor actor : actors.values()) {
                 graphics.drawImage(actor.frame(now), actor.column * TILE_SIZE,
                         (actor.row - 1) * TILE_SIZE, TILE_SIZE, TILE_SIZE * 2);
@@ -418,7 +429,7 @@ public final class RestaurantScene {
             drawActorTag(graphics, waiter, "Alex");
             drawActorTag(graphics, cashier, "Amelia");
             actors.forEach((id, actor) -> {
-                if (actor != chef && actor != waiter && actor != cashier) drawActorTag(graphics, actor, id.equals("customer") ? "Bob" : id);
+                if (actor != chef && actor != waiter && actor != cashier) drawActorTag(graphics, actor, id);
             });
         });
     }
@@ -433,13 +444,6 @@ public final class RestaurantScene {
     private static void drawActorTag(GraphicsContext graphics, Actor actor, String label) {
         drawWhiteText(graphics, label, actor.column * TILE_SIZE + TILE_SIZE / 2,
                 (actor.row - 1) * TILE_SIZE - 8);
-    }
-
-    private static void drawTarget(GraphicsContext graphics, Tile tile, Color color) {
-        graphics.setStroke(color);
-        graphics.setLineWidth(3);
-        graphics.strokeRect(tile.column * TILE_SIZE + 6, tile.row * TILE_SIZE + 6,
-                TILE_SIZE - 12, TILE_SIZE - 12);
     }
 
     private void drawFloor() {
@@ -495,9 +499,7 @@ public final class RestaurantScene {
 
     private void drawDishes(GraphicsContext graphics) {
         for (int i = 0; i < dishesPlaced.length; i++) {
-            if (!dishesPlaced[i]) {
-                continue;
-            }
+            if (!dishesPlaced[i]) continue;
             Tile counter = DISH_SPOTS[i];
             double x = counter.column * TILE_SIZE;
             double y = (counter.row + 1) * TILE_SIZE;
@@ -549,6 +551,9 @@ public final class RestaurantScene {
         private boolean seated;
         private Tile destination;
         private boolean requestedSit;
+        private final ArrayDeque<Walk> walks = new ArrayDeque<>();
+        private Runnable onArrival;
+        private double walkDelay;
 
         private Actor(Tile start, Image[][] idleFrames, Image[][] runFrames, Image[] sittingFrames,
                 Direction direction) {
@@ -569,7 +574,20 @@ public final class RestaurantScene {
             follow(requirePath(tile(), target), sit);
         }
 
+        private void walkTo(Tile target, Runnable arrived) {
+            walks.addLast(new Walk(target, arrived));
+            if (!isMoving() && onArrival == null) startNextWalk();
+        }
+
+        private void startNextWalk() {
+            if (walks.isEmpty()) return;
+            Walk walk = walks.removeFirst();
+            follow(requirePath(tile(), walk.target()), false);
+            onArrival = walk.arrived();
+        }
+
         private void follow(List<Tile> path, boolean sitOnArrival) {
+            walkDelay = 0;
             destination = path.get(path.size() - 1);
             requestedSit = sitOnArrival;
             column = path.get(0).column;
@@ -589,6 +607,18 @@ public final class RestaurantScene {
         }
 
         private boolean advance(double delta) {
+            if (walkDelay > 0) {
+                walkDelay = Math.max(0, walkDelay - delta);
+                if (walkDelay > 1e-9) return false;
+            }
+            if (!isMoving()) {
+                if (onArrival != null) {
+                    Runnable arrived = onArrival;
+                    onArrival = null;
+                    arrived.run();
+                }
+                startNextWalk();
+            }
             if (!isMoving() || delta <= 0) {
                 return false;
             }
@@ -621,7 +651,7 @@ public final class RestaurantScene {
             if (seated) {
                 frames = sittingFrames;
                 frameDuration = IDLE_FRAME_NANOS;
-            } else if (isMoving() && runFrames != null) {
+            } else if (isMoving() && walkDelay <= 1e-9 && runFrames != null) {
                 frames = runFrames[direction.ordinal()];
                 frameDuration = WALK_FRAME_NANOS;
             } else {
@@ -635,7 +665,9 @@ public final class RestaurantScene {
         }
     }
 
-    record Tile(int column, int row) {}
+    private record Walk(Tile target, Runnable arrived) {}
+
+    private record Tile(int column, int row) {}
 
     private record SearchNode(Tile tile, int cost, int score, long order) {}
 

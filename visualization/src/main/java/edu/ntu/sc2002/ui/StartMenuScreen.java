@@ -61,9 +61,6 @@ public final class StartMenuScreen {
     private final MediaPlayer wind;
     private final MediaPlayer menuTrack;
     private final MediaPlayer muffledTrack;
-    private final MediaPlayer hoverSound;
-    private final MediaPlayer clickSound;
-    private final String fontFamily;
     private final AnimationTimer animation;
 
     private long launchNanos;
@@ -79,12 +76,9 @@ public final class StartMenuScreen {
 
     public StartMenuScreen(Runnable onStart) {
         this.onStart = onStart;
-        fontFamily = loadFont();
         wind = createPlayer("/menu-wind.wav");
         menuTrack = createPlayer("/Potsu - sunny.mp3");
         muffledTrack = createPlayer("/Potsu - sunny (muffled).mp3");
-        hoverSound = createPlayer("/400 Sounds Pack/Card and Board/card_draw_1.wav");
-        clickSound = createPlayer("/400 Sounds Pack/Card and Board/card_draw_2.wav");
         if (menuTrack != null) {
             menuTrack.setVolume(0.5);
         }
@@ -170,16 +164,6 @@ public final class StartMenuScreen {
         stop(wind);
         stop(menuTrack);
         stop(muffledTrack);
-        stop(hoverSound);
-        stop(clickSound);
-    }
-
-    private void playSound(MediaPlayer player) {
-        if (player != null) {
-            player.stop();
-            player.seek(Duration.ZERO);
-            player.play();
-        }
     }
 
     private void updateCity(double elapsed, double delta) {
@@ -319,16 +303,15 @@ public final class StartMenuScreen {
     }
 
     private void configureButton(Button button, Runnable action) {
+        UiEffects.install(button);
         button.setTextFill(Color.WHITE);
         button.setStyle("-fx-background-color: transparent; -fx-background-insets: 0; "
                 + "-fx-border-color: transparent; -fx-padding: 0;");
         button.setOnMouseEntered(event -> {
-            playSound(hoverSound);
             button.setFont(font(baseButtonFontSize(button) + 2));
         });
         button.setOnMouseExited(event -> button.setFont(font(baseButtonFontSize(button))));
         button.setOnAction(event -> {
-            playSound(clickSound);
             action.run();
         });
     }
@@ -423,23 +406,7 @@ public final class StartMenuScreen {
         return transition;
     }
 
-    private String loadFont() {
-        URL url = resource("/friendlyscribbles/friendlyscribbles.ttf");
-        if (url == null) {
-            LOG.warning("Friendly Scribbles font is missing; using the system font");
-            return Font.getDefault().getFamily();
-        }
-        Font loaded = Font.loadFont(url.toExternalForm(), 72);
-        if (loaded == null) {
-            LOG.warning("Could not load Friendly Scribbles font; using the system font");
-            return Font.getDefault().getFamily();
-        }
-        return loaded.getFamily();
-    }
-
-    private Font font(double size) {
-        return Font.font(fontFamily, size);
-    }
+    private Font font(double size) { return UiEffects.font(size); }
 
     private MediaPlayer createPlayer(String path) {
         URL url = resource(path);

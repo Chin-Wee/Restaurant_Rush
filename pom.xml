@@ -1,105 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-
   <groupId>edu.ntu.sc2002</groupId>
   <artifactId>restaurant-rush</artifactId>
   <version>1.0-SNAPSHOT</version>
-
+  <packaging>pom</packaging>
+  <modules><module>core</module></modules>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>17</maven.compiler.release>
-    <javafx.version>21.0.12</javafx.version>
   </properties>
-
-  <dependencies>
-    <dependency>
-      <groupId>org.openjfx</groupId>
-      <artifactId>javafx-controls</artifactId>
-      <version>${javafx.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openjfx</groupId>
-      <artifactId>javafx-media</artifactId>
-      <version>${javafx.version}</version>
-    </dependency>
-  </dependencies>
-
-  <build>
-    <resources>
-      <resource>
-        <directory>src/main/resources</directory>
-      </resource>
-      <resource>
-        <directory>Assets</directory>
-        <includes>
-          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/1.png</include>
-          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/2.png</include>
-          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/3.png</include>
-          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/4.png</include>
-          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/5.png</include>
-          <include>craftpix-net-322807-free-city-backgrounds-pixel-art/city 2/6.png</include>
-          <include>menu-wind.wav</include>
-          <include>Potsu - sunny.mp3</include>
-          <include>Potsu - sunny (muffled).mp3</include>
-          <include>400 Sounds Pack/Card and Board/card_draw_1.wav</include>
-          <include>400 Sounds Pack/Card and Board/card_draw_2.wav</include>
-          <include>friendlyscribbles/friendlyscribbles.ttf</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Room_Builder_free_16x16/c00_r12.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Room_Builder_free_16x16/c04_r13.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Room_Builder_free_16x16/c05_r17.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c00_r07.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c01_r07.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c00_r08.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c01_r08.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c00_r09.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c01_r09.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c03_r05.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c03_r08.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c03_r09.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c06_r13.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c06_r21.png</include>
-          <include>Modern tiles_Free/Interiors_free/16x16/split-16x16/Interiors_free_16x16/c06_r22.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c00_r10.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c01_r10.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c02_r10.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c03_r10.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c04_r10.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c00_r11.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c01_r11.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c02_r11.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c03_r11.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c04_r11.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c05_r11.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c00_r12.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c01_r12.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c02_r12.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c03_r12.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c04_r12.png</include>
-          <include>Kitchen and more tileset [16x16]/split-16x16/tileset/c05_r12.png</include>
-        </includes>
-      </resource>
-    </resources>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.13.0</version>
-      </plugin>
-      <plugin>
-        <groupId>org.openjfx</groupId>
-        <artifactId>javafx-maven-plugin</artifactId>
-        <version>0.0.8</version>
-        <configuration><mainClass>edu.ntu.sc2002.App</mainClass></configuration>
-      </plugin>
-    </plugins>
-  </build>
+  <build><pluginManagement><plugins>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.13.0</version></plugin>
+  </plugins></pluginManagement></build>
+  <profiles><profile>
+    <id>visualization</id><modules><module>visualization</module></modules>
+  </profile></profiles>
 </project>
