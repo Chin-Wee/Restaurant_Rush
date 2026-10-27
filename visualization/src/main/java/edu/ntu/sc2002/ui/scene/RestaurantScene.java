@@ -91,7 +91,7 @@ public final class RestaurantScene {
     private final Map<String, Actor> actors = new LinkedHashMap<>();
     private Map<String, Placement> customerPlacements = Map.of();
     private final Set<String> exiting = new HashSet<>();
-    private final boolean[] dishesPlaced = new boolean[DISH_SPOTS.length];
+    private final Map<String, Dish> dishes = new LinkedHashMap<>();
     private long previousAnimationNanos;
     private final AnimationTimer actorAnimation = new AnimationTimer() {
         @Override
@@ -177,12 +177,15 @@ public final class RestaurantScene {
             }
         }
         customerPlacements = targets;
-        Arrays.fill(dishesPlaced, false);
-        snapshot.orders().stream().filter(o -> o.status() == OrderStatus.READY).forEach(order -> {
-            Integer tableId = tableFor(snapshot, order.customerId());
-            if (tableId != null) dishesPlaced[tableId - 1] = true;
-        });
-        drawFurniture();
+        Set<String> activeOrders = new HashSet<>();
+        snapshot.orders().stream().filter(o -> o.status() == OrderStatus.READY || o.status() == OrderStatus.SERVED)
+                .forEach(order -> {
+                    activeOrders.add(order.id());
+                    Integer tableId = tableFor(snapshot, order.customerId());
+                    if (tableId != null && order.status() == OrderStatus.READY)
+                        dishes.computeIfAbsent(order.id(), id -> new Dish(tableId));
+                });
+        dishes.keySet().retainAll(activeOrders);
     }
 
     /** Called once per completed turn by the screen. No engine callbacks or revision counters. */
@@ -192,8 +195,19 @@ public final class RestaurantScene {
         if (waiterTable != null && turn.waiter().taskType() != WaiterTaskType.WAIT
                 && turn.waiter().taskType() != WaiterTaskType.SEAT) {
             Tile chair = chairFor(waiterTable);
-            if (turn.waiter().taskType() == WaiterTaskType.SERVE) waiter.walkTo(counterApproach(chair), null);
-            waiter.walkTo(new Tile(chair.column - 1, chair.row), null);
+            if (turn.waiter().taskType() == WaiterTaskType.SERVE) {
+                String orderId = turn.before().orders().stream()
+                        .filter(o -> o.customerId().equals(turn.waiter().targetCustomerId())).findFirst().orElseThrow().id();
+                Dish dish = dishes.computeIfAbsent(orderId, id -> new Dish(waiterTable));
+                waiter.walkTo(counterApproach(chair), () -> {
+                    if (dishes.get(orderId) == dish) dish.place = DishPlace.CARRIED;
+                });
+                waiter.walkTo(new Tile(chair.column - 1, chair.row), () -> {
+                    if (dishes.get(orderId) == dish) dish.place = DishPlace.TABLE;
+                });
+            } else {
+                waiter.walkTo(new Tile(chair.column - 1, chair.row), null);
+            }
         }
         Integer chefTable = tableFor(turn.before(), turn.chef().targetCustomerId());
         if (chefTable != null && turn.chef().taskType() == ChefTaskType.ADVANCE) {
@@ -423,6 +437,7 @@ public final class RestaurantScene {
 
     private void drawUi() {
         drawLayer(uiLayer, graphics -> {
+            drawDishes(graphics);
             graphics.setFont(ACTOR_TAG_FONT);
             graphics.setTextAlign(TextAlignment.CENTER);
             drawActorTag(graphics, chef, "Adam");
@@ -493,16 +508,22 @@ public final class RestaurantScene {
             for (int tableColumn : DINING_TABLE_COLUMNS) {
                 drawTile(graphics, diningTable, tableColumn, DINING_ROW);
             }
-            drawDishes(graphics);
         });
     }
 
     private void drawDishes(GraphicsContext graphics) {
-        for (int i = 0; i < dishesPlaced.length; i++) {
-            if (!dishesPlaced[i]) continue;
-            Tile counter = DISH_SPOTS[i];
-            double x = counter.column * TILE_SIZE;
-            double y = (counter.row + 1) * TILE_SIZE;
+        for (Dish dish : dishes.values()) {
+            Tile counter = DISH_SPOTS[dish.tableId - 1];
+            double x = switch (dish.place) {
+                case COUNTER -> counter.column * TILE_SIZE;
+                case CARRIED -> waiter.column * TILE_SIZE;
+                case TABLE -> DINING_TABLE_COLUMNS[dish.tableId - 1] * TILE_SIZE;
+            };
+            double y = switch (dish.place) {
+                case COUNTER -> (counter.row + 1) * TILE_SIZE;
+                case CARRIED -> waiter.row * TILE_SIZE - 4;
+                case TABLE -> DINING_ROW * TILE_SIZE;
+            };
             graphics.setFill(Color.web("#F3EFDE"));
             graphics.fillOval(x + 18, y + 18, 28, 23);
             graphics.setStroke(Color.web("#737985"));
@@ -535,6 +556,13 @@ public final class RestaurantScene {
 
     private static void drawTile(GraphicsContext graphics, Image tile, int column, int row) {
         graphics.drawImage(tile, column * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    }
+
+    private enum DishPlace { COUNTER, CARRIED, TABLE }
+    private static final class Dish {
+        private final int tableId;
+        private DishPlace place = DishPlace.COUNTER;
+        private Dish(int tableId) { this.tableId = tableId; }
     }
 
     private static final class Actor {
