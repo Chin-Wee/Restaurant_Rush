@@ -1,23 +1,27 @@
 # Restaurant Rush
 
-JavaFX pixel-art restaurant game. The current build opens with an animated start menu; Start Game opens the restaurant UI preview. Displayed game values are fixtures; character movement is scene testing only. No turn engine is connected.
+Requires JDK 17 or later. Graded Stage 1 code is in `core/`; the optional JavaFX client is in `visualization/`.
 
-## Run on macOS
-
-Install JDK 17, then run from the project directory:
+Build and run the CLI:
 
 ```sh
-./mvnw javafx:run
+./mvnw -q clean package
+java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026
 ```
 
-The first run downloads Maven and the JavaFX dependencies.
+Build and run the visual client:
 
-## Asset credits and licenses
+```sh
+./mvnw -q -Pvisualization install
+./mvnw -q -f visualization/pom.xml javafx:run
+```
 
-- City 2 pixel-art backgrounds are from Craftpix. The supplied free license is for non-commercial use only; keep the included `Assets/craftpix-net-322807-free-city-backgrounds-pixel-art/License.txt` with the project.
-- Character sprites are from the Modern tiles free pack. The included `Assets/Modern tiles_Free/LICENSE.txt` limits the pack to non-commercial use; its copy beside the split sprites is `src/main/resources/characters/LICENSE.txt`.
-- Friendly Scribbles font by @kmlgames (used with attribution).
+Generate API documentation using the JDK's Javadoc tool through Maven:
 
-## Architecture
+```sh
+./mvnw -q -Pvisualization javadoc:aggregate
+```
 
-See [package boundaries](docs/Architecture.md) and the [UML](docs/uml/RestaurantRush_ClassDiagram.drawio).
+Generated documentation and build output stay under `target/`; exclude all `target/` folders and `graphify-out/` from the submission archive. UML diagrams are in `docs/uml/`.
+
+Asset credits: Craftpix city art and Modern tiles character art are non-commercial; retain their licenses in `visualization/Assets/` and `visualization/src/main/resources/characters/`. Friendly Scribbles font by @kmlgames, used with attribution.
