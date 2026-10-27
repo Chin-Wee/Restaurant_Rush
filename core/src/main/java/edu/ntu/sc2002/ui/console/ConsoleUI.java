@@ -71,13 +71,7 @@ public final class ConsoleUI {
             GameSnapshot snapshot = controller.snapshot();
             var customer = snapshot.customers().stream().filter(c -> c.id().equalsIgnoreCase(id)).findFirst().orElse(null);
             if (customer == null) { displayError("Unknown customer ID."); continue; }
-            int targetId = customer.arrivalOrdinal();
-            if (task == WaiterTaskType.SERVE) {
-                var order = snapshot.orders().stream().filter(o -> o.customerId().equals(customer.id())).findFirst().orElse(null);
-                if (order == null) { displayError("That customer has no order."); continue; }
-                targetId = order.id();
-            }
-            return new WaiterChoiceDTO(task, targetId);
+            return new WaiterChoiceDTO(task, customer.arrivalOrdinal());
         }
     }
 

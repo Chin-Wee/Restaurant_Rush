@@ -12,9 +12,6 @@ public final class Waiter extends Staff {
     private int nextOrderId = 1;
 
     public Waiter(String staffId) { super(staffId); }
-    public boolean seatCustomer(WaitingQueue queue, Table table) {
-        return seatCustomer(queue, table, queue.peekCustomer());
-    }
     /** The existing manager API can select any queued customer. */
     public boolean seatCustomer(WaitingQueue queue, Table table, Customer customer) {
         requireAvailable();

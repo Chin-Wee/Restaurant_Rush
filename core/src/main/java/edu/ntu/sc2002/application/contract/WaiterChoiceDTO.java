@@ -2,7 +2,7 @@ package edu.ntu.sc2002.application.contract;
 
 import java.util.Objects;
 
-/** Target is the arrival ordinal for SEAT/TAKE_ORDER, the order ID for SERVE, or zero for WAIT. */
+/** Target is the customer's arrival ordinal for every task, or zero for WAIT. */
 public record WaiterChoiceDTO(WaiterTaskType taskType, int targetId) {
     public WaiterChoiceDTO {
         Objects.requireNonNull(taskType);
