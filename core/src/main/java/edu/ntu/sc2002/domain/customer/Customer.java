@@ -32,8 +32,10 @@ public final class Customer {
         if (items.isEmpty()) throw new IllegalStateException("Menu is empty");
         return items.get(new Random(choiceSeed).nextInt(items.size()));
     }
-    public boolean isWaitingForTableOrFood() { return state == CustomerState.WAITING || state == CustomerState.SEATED; }
-    public void applyWaitingLoss() { if (isWaitingForTableOrFood()) deductSatisfaction(8); }
+    /** Applies waiting loss only while waiting for a table or food, as named in the Phase 1 diagram. */
+    public void isApplySatisfactionLoss() {
+        if (state == CustomerState.WAITING || state == CustomerState.SEATED) deductSatisfaction(8);
+    }
     public void deductSatisfaction(int points) {
         if (points < 0) throw new IllegalArgumentException("Points must be nonnegative");
         satisfaction = (int) Math.max(0L, (long) satisfaction - points);
@@ -70,7 +72,9 @@ public final class Customer {
         state = CustomerState.PAID;
     }
     public void leave() {
-        if (!isWaitingForTableOrFood() || satisfaction != 0) throw new IllegalStateException("Customer is not abandoning");
+        if ((state != CustomerState.WAITING && state != CustomerState.SEATED) || satisfaction != 0) {
+            throw new IllegalStateException("Customer is not abandoning");
+        }
         if (order != null) order.cancel();
         state = CustomerState.LEFT;
     }

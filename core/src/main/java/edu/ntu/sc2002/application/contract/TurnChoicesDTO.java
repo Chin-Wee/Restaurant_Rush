@@ -6,6 +6,8 @@ public record TurnChoicesDTO(WaiterChoiceDTO waiterChoice, ChefChoiceDTO chefCho
     public TurnChoicesDTO {
         Objects.requireNonNull(waiterChoice);
         Objects.requireNonNull(chefChoice);
+        waiterChoice = new WaiterChoiceDTO(waiterChoice.taskType(), waiterChoice.targetCustomerId());
+        chefChoice = new ChefChoiceDTO(chefChoice.taskType(), chefChoice.targetCustomerId());
     }
     public WaiterChoiceDTO getWaiterChoice() { return waiterChoice; }
     public ChefChoiceDTO getChefChoice() { return chefChoice; }

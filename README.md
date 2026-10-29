@@ -105,10 +105,10 @@ Restaurant_Rush/
 - Character sprites — Modern tiles free pack (non-commercial)
 - Friendly Scribbles font — @kmlgames
 
-## Phase 1 V2 design and contracts
+## Phase 1 design and contracts
 
-`RestaurantRush_ClassDiagram_Phase1.drawio` is an unchanged copy of the supplied
-Phase 1 V2 diagram. It governs the Stage 1 structure; the assignment governs the
+`RestaurantRush_ClassDiagram_Phase1.drawio` is the updated Phase 1 diagram merged
+in revision `a7fc4f7`. It governs the Stage 1 structure; the assignment governs the
 six-step turn rules. Stage 2/3 behavior is not included. The shipped-game reference
 for the existing prepare/serve kitchen flow is
 [Overcooked](https://www.playstation.com/en-us/games/overcooked-/); its timing rules
@@ -118,7 +118,9 @@ Menu media players are disposed on shutdown so the normal launch path exits clea
 
 - `TurnController` holds `ScoreBoard`, the sole owner of service/departure counts,
   paid revenue, paid-time satisfaction and victory evaluation. `Restaurant` owns
-  two tables, its queue, menu, three staff (one of each role), and customer history.
+  two tables, its queue, menu and three staff (one of each role). Active customers
+  are derived from the queue and occupied tables; ScoreBoard retains the totals
+  after payment or abandonment.
 - Each `Customer` owns zero or one `Order`. Orders have no customer back-reference
   or order ID. Commands and presentation dishes use string customer IDs. An order
   stores its locked cents and preparation progress; timing uses explicit turn
@@ -132,22 +134,90 @@ Menu media players are disposed on shutdown so the normal launch path exits clea
   folded into `JavaFXView`. The unused, obsolete root `src/.../App.java` launcher
   was removed; the Maven visualization module owns the JavaFX entry point.
 
-V2 omits several implementation details. These are explicit additions rather than
-changes to the supplied diagram:
+The updated queue contract is `dequeueCustomer(customer): void`. It removes that
+customer, preserves all other queue positions, and rejects a missing target.
+There is no zero-argument dequeue or separate public remove operation. The
+renamed `Customer.isApplySatisfactionLoss(): void` applies the regular waiting
+penalty. `FoodTypes` defines SALAD, BURGER and PASTA and drives base-menu setup.
+`Restaurant` no longer exposes the removed `getCustomers()` or `abandon()` APIs.
+It implements selected seating through the drawn `seat(customer)` operation:
+validate the selection and free table, assign the customer, then dequeue that
+customer. The drawn `Waiter.seatCustomer(queue, table)` seats the queue head when
+used directly. The controller still charges every manager seating decision as
+its one Waiter task, so this division does not add another action per turn.
 
-| Detail | Implementation and reason |
-| --- | --- |
-| Selected seating vs. `Waiter.seatCustomer(queue, table)` | Keep that two-argument operation for the queue head; a three-argument helper accepts the manager's selected customer. `Restaurant.seat(customer)` uses the helper, removes only that customer and preserves the remaining queue order. |
-| Sequential choices vs. `getManagerChoices()` | Console collects and submits Waiter then Chef with retry loops and returns the accepted pair. Its caller never submits that pair again. JavaFX events submit the Waiter once, stage the Chef, and submit the Chef once on Resolve; the getter only reads the staged pair, returning `null` until complete. It never blocks the JavaFX thread. |
-| Midgame `GameResult` | V2 defines only `VICTORY` and `DEFEAT`. Results during play evaluate current thresholds provisionally. Both frontends use `TurnPhase.GAME_OVER` to terminate after turn 18, including when thresholds were met earlier. |
-| Parameterless `paid()` / `completePayment(customer)` | These commit a customer already in `READY_TO_PAY`. `Cashier.processPayment(customer, restaurant, turn)` checks `canPay(turn)` first, enforcing the extra payment delay at the turn-aware boundary. |
-| Read access and history | Customer exposes `order()`, `arrivalOrdinal()` and `isWaitingForTableOrFood()`; Order exposes `lockedPriceCents()`, `unitsDone()` and `servedTurn()`; Table exposes `tableId()`. Restaurant retains customer history for `getCustomers()` and completed/departed snapshot rows. None adds another order owner. |
-| Controller/view bookkeeping | Completed-turn count, immutable snapshot row records, event/payment/departure buffers, seed/money helpers, and presentation state support the listed operations. Extra view fields retain rendering and selected choices; they contain no game rules. |
-| Diagram notation omissions | Record constructors/accessors are implicit in Java. The Cashier parameter label `Restaurant: restaurant` is read as `restaurant: Restaurant`. The drawn Waiter dependency ends at a Customer operation cell; service calls the listed `Customer.serveOrder(turn)`. The supplied drawing remains byte-for-byte unchanged. |
+The controller has no customer-history list or separate completed-turn counter.
+Active customers are collected from the queue and occupied tables in arrival
+order. Scheduled arrivals determine IDs and choice seeds, so IDs never restart
+when earlier customers leave. Existing turn/task flags determine completed turns.
+Snapshots contain active customers/orders; paid and abandoned records are no
+longer retained as full objects. Payments, departure events and all aggregate
+statistics remain available through TurnResolution and ScoreBoard.
 
-No unresolved contract conflict requires an ownership or gameplay amendment.
+The supplied diagram is unchanged. Necessary private helpers, read accessors,
+immutable boundary rows and Java record methods remain implementation details.
+Cashier's reversed parameter label `Restaurant: restaurant` is interpreted as
+`restaurant: Restaurant`. Queue/table membership follows customer state: waiting
+customers are queued, seated/eating/paying customers occupy a table, and paid or
+abandoned customers occupy neither. Payment eligibility remains checked by
+Cashier before the parameterless commit operations.
 
-## Stage 1 verification notes (2026-10-29)
+## Logic parity verification (2026-10-29)
+
+The offline core/visualization build passed. External checks made 644 independent
+logic assertions and compared 1,800 turns across 100 seeds with the previous
+implementation. After excluding historical customer/order rows, all active
+customer states, choices, counters, statistics and command resolutions matched.
+Actual offline CLI victory, defeat, Pasta, selected-customer priority, invalid
+input/action retries and three EOF paths also matched gameplay output. The only
+snapshot-content change is the removal of departed customer/order history. The
+comparison also checked all 27 modeled logic classifiers: 198 of 199 listed rows
+match as written; Cashier's reversed parameter label is the sole literal discrepancy.
+
+Run the build and README game schedules above to reproduce the game checks.
+This direct selected-seating and turn-count check is reproducible after the build
+on macOS or Linux:
+
+```sh
+java -ea --source 17 --class-path core/target/classes /dev/stdin <<'JAVA'
+import edu.ntu.sc2002.application.*;
+import edu.ntu.sc2002.application.contract.*;
+import edu.ntu.sc2002.domain.*;
+import edu.ntu.sc2002.domain.customer.*;
+import edu.ntu.sc2002.domain.staff.*;
+import java.util.*;
+class PhaseOneCheck {
+    public static void main(String[] args) {
+        var room = new Restaurant(2);
+        var first = new Customer("C1", 1, 2027);
+        var chosen = new Customer("C2", 2, 2028);
+        room.registerArrival(first);
+        room.registerArrival(chosen);
+        assert room.seat(chosen).getSeatedCustomer() == chosen;
+        assert room.getWaitingQueue().getQueuedCustomers().equals(List.of(first));
+        assert room.getStaff(Waiter.class).seatCustomer(room.getWaitingQueue(), room.getTables().get(1));
+        var game = new TurnController(GameConfig.stageOne(2026));
+        for (int turn = 1; turn <= 18; turn++) {
+            game.beginTurn();
+            assert game.currentTurn() == turn && game.snapshot().turnsUsed() == turn - 1;
+            game.processArrival();
+            if (turn == 16) assert game.snapshot().waitingQueue().contains("C6");
+            assert game.submitWaiterDecision(new WaiterChoiceDTO(WaiterTaskType.WAIT, null)).isSuccessful();
+            assert game.submitChefDecision(new ChefChoiceDTO(ChefTaskType.WAIT, null)).isSuccessful();
+            assert game.snapshot().turnsUsed() == turn && game.lastResolution().turn() == turn;
+        }
+        assert game.phase() == TurnPhase.GAME_OVER;
+        assert game.snapshot().unhappyDepartures() == 2;
+    }
+}
+JAVA
+```
+
+Temporary test sources, classes, traces, logs and screenshots were kept outside
+the checkout and removed after verification. No test framework, dependency,
+source test or production test hook was added. No stage tag was moved.
+
+## Historical V2 verification notes (2026-10-29)
 
 Build both modules using the existing local Maven cache:
 

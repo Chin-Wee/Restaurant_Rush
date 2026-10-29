@@ -4,7 +4,12 @@ import edu.ntu.sc2002.domain.OrderStatus;
 import edu.ntu.sc2002.domain.customer.CustomerState;
 import java.util.List;
 
-/** Immutable engine data. No formatted labels, JavaFX types, or mutable domain objects. */
+/**
+ * Immutable engine data for customers currently in the queue or at a table.
+ * Paid and unhappy departure totals remain in the statistics after customers leave.
+ * averagePaidSatisfaction is null until the first payment. Empty tables have a null occupantId;
+ * customer tableId and queuePosition are null when that location does not apply.
+ */
 public record GameSnapshot(int turn, TurnPhase phase, int revenueCents, Double averagePaidSatisfaction,
         int servedCount, int paidCount, int unhappyDepartures, int turnsUsed,
         List<String> waitingQueue, List<TableView> tables, List<CustomerView> customers, List<OrderView> orders,

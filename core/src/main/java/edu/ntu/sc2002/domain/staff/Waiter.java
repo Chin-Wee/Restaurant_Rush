@@ -9,16 +9,14 @@ import java.util.Objects;
 
 public final class Waiter extends Staff {
     public Waiter(String staffId) { super(staffId); }
+    /** Seats the next queued customer; Restaurant.seat handles an explicitly selected customer. */
     public boolean seatCustomer(WaitingQueue queue, Table table) {
-        return seatCustomer(queue, table, queue.getQueuedCustomers().stream().findFirst().orElse(null));
-    }
-    /** Selected-customer helper: the manager may prioritize any queued customer. */
-    public boolean seatCustomer(WaitingQueue queue, Table table, Customer customer) {
         Objects.requireNonNull(queue);
         Objects.requireNonNull(table);
-        if (customer == null || table.isOccupied() || !queue.getQueuedCustomers().contains(customer)) return false;
+        if (queue.isEmpty() || table.isOccupied()) return false;
+        Customer customer = queue.getQueuedCustomers().get(0);
         table.assignCustomer(customer);
-        queue.remove(customer);
+        queue.dequeueCustomer(customer);
         return true;
     }
     public Order takeOrder(Customer customer, Menu menu) {

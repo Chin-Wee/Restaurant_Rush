@@ -13,15 +13,12 @@ public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
     private final TurnController controller;
     private int displayedEvents;
 
-    public ConsoleUI() { this(new TurnController()); }
-    public ConsoleUI(TurnController controller) { this(new Scanner(System.in), controller); }
     public ConsoleUI(Scanner input, TurnController controller) {
         this.input = input;
         this.controller = controller;
     }
 
     public void run() {
-        System.out.println("Restaurant Rush — Stage 1 (seed " + controller.randomSeed() + ")");
         try {
             while (controller.phase() != TurnPhase.GAME_OVER) {
                 controller.beginTurn();

@@ -5,8 +5,10 @@ import edu.ntu.sc2002.domain.*;
 import edu.ntu.sc2002.domain.customer.*;
 import edu.ntu.sc2002.domain.staff.*;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 /** Runs the Stage 1 six-step game loop. UI never mutates domain state. */
 public class TurnController {
@@ -17,27 +19,25 @@ public class TurnController {
     private int currentTurn = 1;
     private boolean waiterTaskUsed;
     private boolean turnStarted;
-    private int completedTurns;
     private String newArrival;
     private final List<String> events = new ArrayList<>();
     private PaymentRecord paymentRecord;
     private List<String> departures = List.of();
 
-    public TurnController() { this(GameConfig.stageOne(2026)); }
     public TurnController(GameConfig config) {
         this.config = Objects.requireNonNull(config);
         restaurant = new Restaurant(config.numTables());
     }
     public TurnPhase phase() { return phase; }
     public int currentTurn() { return currentTurn; }
-    public long randomSeed() { return config.randomSeed(); }
     /** During play this is a provisional threshold evaluation, never a termination signal. */
     public GameResult result() { return scoreBoard.evaluateResult(); }
 
     /** Starts the turn so the UI can show the previous state before arrival. */
     public TurnResolution beginTurn() {
         if (turnStarted || phase != TurnPhase.START_OF_TURN) throw new IllegalStateException("Cannot begin another turn");
-        currentTurn = completedTurns + 1;
+        // A used Waiter task with no active turn identifies the previously completed turn.
+        if (waiterTaskUsed) currentTurn++;
         events.clear(); departures = List.of(); paymentRecord = null; newArrival = null;
         waiterTaskUsed = false;
         turnStarted = true;
@@ -48,7 +48,7 @@ public class TurnController {
     public TurnResolution processArrival() {
         if (!turnStarted || phase != TurnPhase.START_OF_TURN) throw new IllegalStateException("Begin the turn before processing arrivals");
         if (config.arrivalSchedule().contains(currentTurn)) {
-            int ordinal = restaurant.getCustomers().size() + 1;
+            int ordinal = config.arrivalSchedule().indexOf(currentTurn) + 1;
             Customer customer = new Customer("C" + ordinal, ordinal, config.randomSeed() + ordinal);
             restaurant.registerArrival(customer);
             newArrival = customer.getId();
@@ -95,14 +95,13 @@ public class TurnController {
         } else events.add("Chef waits.");
         executeEatingAndPayment();
         executeWaitingAndAbandonment();
-        completedTurns++;
         turnStarted = false;
         phase = currentTurn == config.maxTurns() ? TurnPhase.GAME_OVER : TurnPhase.START_OF_TURN;
         return response(null);
     }
 
     private void executeEatingAndPayment() {
-        for (Customer customer : restaurant.getCustomers()) customer.finishEating(currentTurn);
+        for (Customer customer : activeCustomers()) customer.finishEating(currentTurn);
         Customer paying = restaurant.oldestPaymentCandidate(currentTurn);
         if (paying != null) {
             paymentRecord = restaurant.getStaff(Cashier.class).processPayment(paying, restaurant, currentTurn);
@@ -113,11 +112,16 @@ public class TurnController {
 
     private void executeWaitingAndAbandonment() {
         List<String> left = new ArrayList<>();
-        for (Customer customer : restaurant.getCustomers()) {
-            if (customer.isWaitingForTableOrFood()) {
-                customer.applyWaitingLoss();
+        for (Customer customer : activeCustomers()) {
+            if (customer.getState() == CustomerState.WAITING || customer.getState() == CustomerState.SEATED) {
+                customer.isApplySatisfactionLoss();
                 if (customer.getSatisfaction() == 0) {
-                    restaurant.abandon(customer);
+                    customer.leave();
+                    if (restaurant.getWaitingQueue().getQueuedCustomers().contains(customer)) {
+                        restaurant.getWaitingQueue().dequeueCustomer(customer);
+                    }
+                    Table table = restaurant.tableFor(customer);
+                    if (table != null) table.releaseTable();
                     scoreBoard.recordDeparture();
                     left.add(customer.getId()); events.add(customer.getId() + " leaves unhappy.");
                 }
@@ -127,7 +131,12 @@ public class TurnController {
     }
 
     private Customer customerForId(String id) {
-        return restaurant.getCustomers().stream().filter(c -> c.getId().equalsIgnoreCase(id)).findFirst().orElse(null);
+        return activeCustomers().stream().filter(c -> c.getId().equalsIgnoreCase(id)).findFirst().orElse(null);
+    }
+    private List<Customer> activeCustomers() {
+        return Stream.concat(restaurant.getWaitingQueue().getQueuedCustomers().stream(),
+                restaurant.getTables().stream().filter(Table::isOccupied).map(Table::getSeatedCustomer))
+                .sorted(Comparator.comparingInt(Customer::arrivalOrdinal)).toList();
     }
     private String waiterError(WaiterChoiceDTO decision) {
         if (phase != TurnPhase.MANAGER_CHOICES) return "Waiter choices are unavailable in phase " + phase + ".";
@@ -157,16 +166,17 @@ public class TurnController {
     }
 
     public GameSnapshot snapshot() {
+        var customers = activeCustomers();
         var waiting = restaurant.getWaitingQueue().getQueuedCustomers().stream().map(Customer::getId).toList();
         var tables = restaurant.getTables().stream().map(t -> new GameSnapshot.TableView(t.tableId(),
                 t.isOccupied() ? t.getSeatedCustomer().getId() : null)).toList();
-        var customers = restaurant.getCustomers().stream().map(c -> {
+        var customerViews = customers.stream().map(c -> {
             Table table = restaurant.tableFor(c);
             int queueIndex = waiting.indexOf(c.getId());
             return new GameSnapshot.CustomerView(c.getId(), c.arrivalOrdinal(), c.getState(), c.getSatisfaction(),
                     table == null ? null : table.tableId(), queueIndex < 0 ? null : queueIndex + 1);
         }).toList();
-        var orders = restaurant.getCustomers().stream().filter(c -> c.order() != null).map(c ->
+        var orders = customers.stream().filter(c -> c.order() != null).map(c ->
                 new GameSnapshot.OrderView(c.getId(), c.order().getMenuItem().getName(), c.order().getStatus(),
                         c.order().unitsDone(), c.order().getMenuItem().getPrepUnitsNeeded(), c.order().lockedPriceCents())).toList();
         List<GameSnapshot.WaiterAction> waiterActions = new ArrayList<>();
@@ -175,7 +185,7 @@ public class TurnController {
             Integer nextTable = tables.stream().filter(t -> t.occupantId() == null).map(GameSnapshot.TableView::id).findFirst().orElse(null);
             for (WaiterTaskType task : WaiterTaskType.values()) {
                 if (task == WaiterTaskType.WAIT) continue;
-                for (Customer customer : restaurant.getCustomers()) {
+                for (Customer customer : customers) {
                     var decision = new WaiterChoiceDTO(task, customer.getId());
                     if (waiterError(decision) == null) waiterActions.add(new GameSnapshot.WaiterAction(decision,
                             task == WaiterTaskType.SEAT ? nextTable : null, customer.getId()));
@@ -183,7 +193,7 @@ public class TurnController {
             }
             var waiterWait = new WaiterChoiceDTO(WaiterTaskType.WAIT, null);
             if (waiterError(waiterWait) == null) waiterActions.add(new GameSnapshot.WaiterAction(waiterWait, null, null));
-            for (Customer customer : restaurant.getCustomers()) {
+            for (Customer customer : customers) {
                 var decision = new ChefChoiceDTO(ChefTaskType.ADVANCE, customer.getId());
                 if (chefError(decision) == null) chefActions.add(decision);
             }
@@ -192,11 +202,12 @@ public class TurnController {
         }
         double average = scoreBoard.averagePaidSatisfaction();
         return new GameSnapshot(currentTurn, phase, scoreBoard.revenueCents(), Double.isNaN(average) ? null : average,
-                scoreBoard.servedCount(), scoreBoard.paidCount(), scoreBoard.unhappyDepartures(), completedTurns,
-                waiting, tables, customers, orders, waiterActions, chefActions);
+                scoreBoard.servedCount(), scoreBoard.paidCount(), scoreBoard.unhappyDepartures(),
+                turnStarted || !waiterTaskUsed ? currentTurn - 1 : currentTurn,
+                waiting, tables, customerViews, orders, waiterActions, chefActions);
     }
     public TurnResolution lastResolution() {
-        if (turnStarted || completedTurns == 0) throw new IllegalStateException("Turn not resolved");
+        if (turnStarted || !waiterTaskUsed) throw new IllegalStateException("Turn not resolved");
         return response(null);
     }
     private TurnResolution response(String error) {

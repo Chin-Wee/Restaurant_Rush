@@ -17,8 +17,11 @@ public final class WaitingQueue {
         }
         queue.add(customer);
     }
-    public Customer dequeueCustomer() { return queue.poll(); }
+    /** Removes the manager's selected customer without changing the remaining queue order. */
+    public void dequeueCustomer(Customer customer) {
+        Objects.requireNonNull(customer);
+        if (!queue.remove(customer)) throw new IllegalArgumentException("Customer is not queued");
+    }
     public List<Customer> getQueuedCustomers() { return List.copyOf(queue); }
-    public boolean remove(Customer customer) { return queue.remove(customer); }
     public boolean isEmpty() { return queue.isEmpty(); }
 }
