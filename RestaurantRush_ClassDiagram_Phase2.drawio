@@ -1,9 +1,12 @@
 <mxfile host="65bd71144e">
     <diagram id="VMKm_Yt5Gzj-tNP3JUJF" name="Page-1">
-        <mxGraphModel dx="-212" dy="-464" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+        <mxGraphModel dx="850" dy="1621" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
+                <mxCell id="KEp-7ZJpvuc7dru4ZTif-1" parent="1" style="whiteSpace=wrap;html=1;" value="" vertex="1">
+                    <mxGeometry height="890" width="810" x="1360" y="3334" as="geometry"/>
+                </mxCell>
                 <mxCell id="v3LlPkS386wooredmOyL-696" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=18;fontColor=#1A1A1A;fontFamily=Helvetica;" value="&lt;b&gt;Restaurant Rush&lt;/b&gt; — Phase 2 Class Diagram" vertex="1">
                     <mxGeometry height="40" width="380" x="2450" y="1970" as="geometry"/>
                 </mxCell>
@@ -1197,6 +1200,9 @@
                 </mxCell>
                 <mxCell id="v3LlPkS386wooredmOyL-1066" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="0..1" vertex="1">
                     <mxGeometry height="30" width="30" x="2350" y="4809" as="geometry"/>
+                </mxCell>
+                <mxCell id="KEp-7ZJpvuc7dru4ZTif-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=50;" value="Enumerations" vertex="1">
+                    <mxGeometry height="70" width="330" x="1360" y="3240" as="geometry"/>
                 </mxCell>
             </root>
         </mxGraphModel>

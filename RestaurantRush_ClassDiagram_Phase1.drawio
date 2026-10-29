@@ -1,9 +1,15 @@
 <mxfile host="65bd71144e">
     <diagram id="T9MUIwGChWMkFqw6OrUa" name="Page-1">
-        <mxGraphModel dx="-2271" dy="-2859" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+        <mxGraphModel dx="1112" dy="2562" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
+                <mxCell id="A7Bu4eEH8oBBSjnmC-ld-1" parent="1" style="whiteSpace=wrap;html=1;" value="" vertex="1">
+                    <mxGeometry height="890" width="810" x="2880" y="4676" as="geometry"/>
+                </mxCell>
+                <mxCell id="A7Bu4eEH8oBBSjnmC-ld-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=50;" value="Enumerations" vertex="1">
+                    <mxGeometry height="70" width="330" x="2880" y="4596" as="geometry"/>
+                </mxCell>
                 <mxCell id="Iyqkca0iRSBxxje4D82c-9" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=18;fontColor=#1A1A1A;fontFamily=Helvetica;" value="&lt;b&gt;Restaurant Rush&lt;/b&gt; — Phase 1 Class Diagram" vertex="1">
                     <mxGeometry height="40" width="380" x="3970" y="3360" as="geometry"/>
                 </mxCell>
