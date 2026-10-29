@@ -8,7 +8,7 @@ import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 /** Reads typed commands and displays immutable results from the controller. */
-public final class ConsoleUI {
+public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
     private final Scanner input;
     private final TurnController controller;
     private int displayedEvents;
@@ -29,7 +29,7 @@ public final class ConsoleUI {
                 TurnResolution arrival = controller.processArrival();
                 displayEvents(arrival);
                 System.out.println("Available tasks: " + staffTasks(controller.snapshot()));
-                promptManagerChoices();
+                getManagerChoices();
                 displayTurnSummary(controller.lastResolution());
             }
         } catch (NoSuchElementException ended) {
@@ -39,18 +39,23 @@ public final class ConsoleUI {
         displayEndGameResult(controller.result());
     }
 
-    public void promptManagerChoices() {
+    public TurnChoicesDTO getManagerChoices() {
         TurnResolution response;
+        WaiterChoiceDTO waiter;
+        ChefChoiceDTO chef;
         do {
-            response = controller.submitWaiterDecision(readWaiterChoice());
+            waiter = readWaiterChoice();
+            response = controller.submitWaiterDecision(waiter);
             if (!response.isSuccessful()) displayError(response.errorMessage());
         } while (!response.isSuccessful());
         // Show the customer's chosen food before asking for the Chef's task.
         displayEvents(response);
         do {
-            response = controller.submitChefDecision(readChefChoice());
+            chef = readChefChoice();
+            response = controller.submitChefDecision(chef);
             if (!response.isSuccessful()) displayError(response.errorMessage());
         } while (!response.isSuccessful());
+        return new TurnChoicesDTO(waiter, chef);
     }
 
     private WaiterChoiceDTO readWaiterChoice() {
@@ -64,12 +69,12 @@ public final class ConsoleUI {
                 default -> null;
             };
             if (task == null) { displayError("Choose 1–4."); continue; }
-            if (task == WaiterTaskType.WAIT) return new WaiterChoiceDTO(task, 0);
+            if (task == WaiterTaskType.WAIT) return new WaiterChoiceDTO(task, null);
             String id = promptCustomer();
             GameSnapshot snapshot = controller.snapshot();
             var customer = snapshot.customers().stream().filter(c -> c.id().equalsIgnoreCase(id)).findFirst().orElse(null);
             if (customer == null) { displayError("Unknown customer ID."); continue; }
-            return new WaiterChoiceDTO(task, customer.arrivalOrdinal());
+            return new WaiterChoiceDTO(task, customer.id());
         }
     }
 
@@ -77,22 +82,22 @@ public final class ConsoleUI {
         while (true) {
             System.out.println("Chef task [1 advance order, 2 wait]:");
             int option = readNumber();
-            if (option == 2) return new ChefChoiceDTO(ChefTaskType.WAIT, 0);
+            if (option == 2) return new ChefChoiceDTO(ChefTaskType.WAIT, null);
             if (option != 1) { displayError("Choose 1 or 2."); continue; }
             GameSnapshot snapshot = controller.snapshot();
-            var advanceable = snapshot.chefActions().stream().filter(d -> d.taskType() == ChefTaskType.COOK)
-                    .map(d -> snapshot.orders().stream().filter(o -> o.id() == d.targetOrderId()).findFirst().orElseThrow().customerId()).toList();
+            var advanceable = snapshot.chefActions().stream().filter(d -> d.taskType() == ChefTaskType.ADVANCE)
+                    .map(ChefChoiceDTO::targetCustomerId).toList();
             if (advanceable.isEmpty()) { displayError("No order can be advanced."); continue; }
             System.out.println("Advance which customer order? " + advanceable);
             String id = input.nextLine().trim();
             var order = snapshot.orders().stream().filter(o -> o.customerId().equalsIgnoreCase(id)).findFirst().orElse(null);
             if (order == null) { displayError("No order belongs to that customer."); continue; }
-            return new ChefChoiceDTO(ChefTaskType.COOK, order.id());
+            return new ChefChoiceDTO(ChefTaskType.ADVANCE, order.customerId());
         }
     }
 
     private String promptCustomer() {
-        System.out.println("Customer ID? " + controller.snapshot().customers().stream().filter(c -> c.state() != edu.ntu.sc2002.domain.customer.CustomerState.PAID && c.state() != edu.ntu.sc2002.domain.customer.CustomerState.ABANDONED).map(GameSnapshot.CustomerView::id).toList());
+        System.out.println("Customer ID? " + controller.snapshot().customers().stream().filter(c -> c.state() != edu.ntu.sc2002.domain.customer.CustomerState.PAID && c.state() != edu.ntu.sc2002.domain.customer.CustomerState.LEFT).map(GameSnapshot.CustomerView::id).toList());
         return input.nextLine().trim();
     }
 
@@ -128,8 +133,8 @@ public final class ConsoleUI {
         snapshot.waiterActions().forEach(a -> labels.add("Waiter " + a.decision().taskType() + ": " + a.customerId()));
         if (snapshot.chefActions().isEmpty()) labels.add("Chef: choices follow the Waiter task");
         snapshot.chefActions().forEach(a -> labels.add("Chef " + a.taskType() + ": "
-                + (a.taskType() == ChefTaskType.WAIT ? "null" : snapshot.orders().stream()
-                        .filter(o -> o.id() == a.targetOrderId()).findFirst().orElseThrow().customerId())));
+                + (a.taskType() == ChefTaskType.WAIT ? "null" : a.targetCustomerId())));
+        labels.add("Cashier: at most one eligible payment, automatic");
         return labels;
     }
 

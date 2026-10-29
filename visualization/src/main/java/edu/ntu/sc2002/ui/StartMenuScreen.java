@@ -161,9 +161,9 @@ public final class StartMenuScreen {
 
     public void dispose() {
         animation.stop();
-        stop(wind);
-        stop(menuTrack);
-        stop(muffledTrack);
+        for (MediaPlayer player : new MediaPlayer[]{wind, menuTrack, muffledTrack}) {
+            if (player != null) player.dispose();
+        }
     }
 
     private void updateCity(double elapsed, double delta) {

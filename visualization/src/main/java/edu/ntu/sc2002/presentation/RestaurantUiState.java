@@ -21,8 +21,7 @@ public record RestaurantUiState(GameSnapshot snapshot, ChefChoiceDTO pendingChef
     public record ResolvedTurn(GameSnapshot before, GameSnapshot after,
             GameSnapshot.WaiterAction waiter, ChefChoiceDTO chef, TurnResolution resolution) {
         public String chefCustomerId() {
-            return after.orders().stream().filter(o -> o.id() == chef.targetOrderId())
-                    .map(GameSnapshot.OrderView::customerId).findFirst().orElse(null);
+            return chef.targetCustomerId();
         }
     }
 }

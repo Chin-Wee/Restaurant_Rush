@@ -10,15 +10,14 @@ import java.util.Queue;
 public final class WaitingQueue {
     private final Queue<Customer> queue = new ArrayDeque<>();
 
-    public void addCustomer(Customer customer) {
+    public void enqueueCustomer(Customer customer) {
         Objects.requireNonNull(customer);
-        if (customer.getState() != CustomerState.QUEUED || queue.contains(customer)) {
+        if (customer.getState() != CustomerState.WAITING || queue.contains(customer)) {
             throw new IllegalArgumentException("Customer cannot join the queue");
         }
         queue.add(customer);
     }
-    public Customer pollCustomer() { return queue.poll(); }
-    public Customer peekCustomer() { return queue.peek(); }
+    public Customer dequeueCustomer() { return queue.poll(); }
     public List<Customer> getQueuedCustomers() { return List.copyOf(queue); }
     public boolean remove(Customer customer) { return queue.remove(customer); }
     public boolean isEmpty() { return queue.isEmpty(); }

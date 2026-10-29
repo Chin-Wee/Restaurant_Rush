@@ -3,7 +3,7 @@ package edu.ntu.sc2002.ui;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 import edu.ntu.sc2002.presentation.RestaurantUiState;
 import edu.ntu.sc2002.ui.scene.RestaurantScene;
@@ -60,14 +60,14 @@ public final class RestaurantScreen {
     private final VBox turnBanner = new VBox(8);
     private Animation turnCelebration;
     private int lastCelebratedTurn;
-    private final Consumer<RestaurantUiState.Command> commandSink;
+    private final BiConsumer<GameSnapshot, RestaurantUiState.Command> commandSink;
     private final RestaurantScene scene;
     private RestaurantUiState uiState;
     private ComboBox<WaiterAction> waiterChoices;
     private ComboBox<ChefChoiceDTO> chefChoices;
 
     public RestaurantScreen(RestaurantScene scene, RestaurantUiState initialState,
-            Consumer<RestaurantUiState.Command> commandSink) {
+            BiConsumer<GameSnapshot, RestaurantUiState.Command> commandSink) {
         this.scene = Objects.requireNonNull(scene);
         this.commandSink = Objects.requireNonNull(commandSink);
         root.setStyle(UiEffects.fontStyle());
@@ -143,7 +143,9 @@ public final class RestaurantScreen {
         events.setWrapText(true);
         events.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #fff5dc;");
         Label totals = new Label("SERVED " + summary.servedCount() + "  ·  PAID " + summary.paidCount()
-                + "  ·  DEPARTURES " + summary.unhappyDepartures() + "  ·  REVENUE " + formatMoney(summary.revenueCents()));
+                + "  ·  DEPARTURES " + summary.unhappyDepartures() + "  ·  REVENUE " + formatMoney(summary.revenueCents())
+                + "  ·  AVG PAID SAT " + formatSatisfaction(summary.averagePaidSatisfaction())
+                + "  ·  TURNS USED " + summary.turnsUsed());
         totals.setWrapText(true);
         totals.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #b9f1c7;");
         turnBanner.getChildren().setAll(title, events, totals);
@@ -258,10 +260,12 @@ public final class RestaurantScreen {
         Button submit = actionButton("Submit", 92, "Submit Waiter task");
         submit.setId("waiter-submit");
         submit.disableProperty().bind(waiterChoices.valueProperty().isNull());
+        GameSnapshot renderedSnapshot = uiState.snapshot();
+        ComboBox<WaiterAction> renderedChoices = waiterChoices;
         submit.setOnAction(event -> {
-            WaiterAction choice = waiterChoices.getValue();
+            WaiterAction choice = renderedChoices.getValue();
             if (choice != null) {
-                commandSink.accept(new WaiterCommand(choice.decision()));
+                commandSink.accept(renderedSnapshot, new WaiterCommand(choice.decision()));
             }
         });
         content.getChildren().addAll(waiterChoices, submit);
@@ -276,10 +280,12 @@ public final class RestaurantScreen {
         Button submit = actionButton("Submit", 82, "Submit Chef task");
         submit.setId("chef-submit");
         submit.disableProperty().bind(chefChoices.valueProperty().isNull());
+        GameSnapshot renderedSnapshot = uiState.snapshot();
+        ComboBox<ChefChoiceDTO> renderedChoices = chefChoices;
         submit.setOnAction(event -> {
-            ChefChoiceDTO choice = chefChoices.getValue();
+            ChefChoiceDTO choice = renderedChoices.getValue();
             if (choice != null) {
-                commandSink.accept(new ChefCommand(choice));
+                commandSink.accept(renderedSnapshot, new ChefCommand(choice));
             }
         });
         FlowPane buttons = new FlowPane(5, 4);
@@ -287,7 +293,7 @@ public final class RestaurantScreen {
         Button resolve = actionButton("Resolve", 82, "Resolve turn");
         resolve.setId("resolve-turn");
         resolve.setDisable(!uiState.canResolveTurn());
-        resolve.setOnAction(event -> commandSink.accept(new ResolveTurn()));
+        resolve.setOnAction(event -> commandSink.accept(renderedSnapshot, new ResolveTurn()));
         buttons.getChildren().add(resolve);
         content.getChildren().addAll(chefChoices, buttons);
         if (uiState.snapshot().chefActions().isEmpty()) {
@@ -308,7 +314,7 @@ public final class RestaurantScreen {
 
     private String chefLabel(ChefChoiceDTO decision) {
         if (decision.taskType() == ChefTaskType.WAIT) return "Wait";
-        var order = uiState.snapshot().orders().stream().filter(o -> o.id() == decision.targetOrderId())
+        var order = uiState.snapshot().orders().stream().filter(o -> o.customerId().equals(decision.targetCustomerId()))
                 .findFirst().orElseThrow();
         return "Advance " + order.customerId() + "'s " + order.item();
     }
@@ -419,6 +425,7 @@ public final class RestaurantScreen {
         metrics.setHgap(18);
         String[][] values = {
                 {"SERVED", Integer.toString(result.servedCount())},
+                {"PAID", Integer.toString(result.paidCount())},
                 {"DEPARTURES", Integer.toString(result.unhappyDepartures())},
                 {"REVENUE", formatMoney(result.revenueCents())},
                 {"AVG PAID SAT", formatSatisfaction(result.averagePaidSatisfaction())},
@@ -428,7 +435,7 @@ public final class RestaurantScreen {
             VBox metric = new VBox(3, sectionHeading(values[column][0]), hudText(values[column][1]));
             metrics.add(metric, column, 0);
             ColumnConstraints constraint = new ColumnConstraints();
-            constraint.setPercentWidth(20);
+            constraint.setPercentWidth(100.0 / values.length);
             constraint.setHgrow(Priority.ALWAYS);
             metrics.getColumnConstraints().add(constraint);
         }

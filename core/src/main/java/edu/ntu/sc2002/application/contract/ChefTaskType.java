@@ -1,2 +1,2 @@
 package edu.ntu.sc2002.application.contract;
-public enum ChefTaskType { COOK, WAIT }
+public enum ChefTaskType { ADVANCE, WAIT }

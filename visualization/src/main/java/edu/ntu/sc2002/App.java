@@ -5,17 +5,14 @@ import java.util.Map;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-import edu.ntu.sc2002.ui.RestaurantScreen;
 import edu.ntu.sc2002.application.GameConfig;
 import edu.ntu.sc2002.application.TurnController;
-import edu.ntu.sc2002.presentation.RestaurantUiAdapter;
-import edu.ntu.sc2002.ui.scene.RestaurantScene;
+import edu.ntu.sc2002.presentation.JavaFXView;
 import edu.ntu.sc2002.ui.StartMenuScreen;
 
 public class App extends Application {
     private StartMenuScreen startMenu;
-    private RestaurantScreen restaurantScreen;
-    private RestaurantScene room;
+    private JavaFXView gameView;
 
     @Override
     public void start(Stage stage) {
@@ -32,13 +29,10 @@ public class App extends Application {
         }
         final long selectedSeed = seed;
         Runnable openRestaurant = () -> {
-            room = new RestaurantScene();
-            RestaurantUiAdapter adapter = new RestaurantUiAdapter(new TurnController(GameConfig.stageOne(selectedSeed)));
-            restaurantScreen = new RestaurantScreen(room, adapter.start(),
-                    command -> restaurantScreen.setUiState(adapter.handle(command)));
-            stage.setScene(new Scene(restaurantScreen.getRoot(),
+            gameView = new JavaFXView(stage, new TurnController(GameConfig.stageOne(selectedSeed)));
+            ((javafx.scene.layout.Region) stage.getScene().getRoot()).setPrefSize(
                     Integer.parseInt(options.getOrDefault("width", "1280")),
-                    Integer.parseInt(options.getOrDefault("height", "720"))));
+                    Integer.parseInt(options.getOrDefault("height", "720")));
             stage.sizeToScene();
         };
         if (direct) {
@@ -56,8 +50,7 @@ public class App extends Application {
 
     @Override
     public void stop() {
-        if (restaurantScreen != null) restaurantScreen.dispose();
-        if (room != null) room.dispose();
+        if (gameView != null) gameView.dispose();
         if (startMenu != null) {
             startMenu.dispose();
         }

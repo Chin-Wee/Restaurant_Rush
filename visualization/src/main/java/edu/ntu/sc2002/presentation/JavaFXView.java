@@ -1,0 +1,101 @@
+package edu.ntu.sc2002.presentation;
+
+import edu.ntu.sc2002.application.TurnController;
+import edu.ntu.sc2002.application.contract.*;
+import edu.ntu.sc2002.presentation.RestaurantUiState.*;
+import java.util.Objects;
+import edu.ntu.sc2002.domain.GameResult;
+import edu.ntu.sc2002.ui.RestaurantScreen;
+import edu.ntu.sc2002.ui.scene.RestaurantScene;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+
+/** UI session orchestration only. The controller validates and executes every game action. */
+public final class JavaFXView implements edu.ntu.sc2002.ui.GameView {
+    private final Stage stage;
+    private final TurnController controller;
+    private TurnChoicesDTO currentChoices;
+    private final RestaurantScene room;
+    private final RestaurantScreen screen;
+    private GameSnapshot turnStart;
+    private GameSnapshot.WaiterAction acceptedWaiter;
+    private ChefChoiceDTO pendingChef;
+    private ResolvedTurn lastTurn;
+    private RestaurantUiState state;
+
+    public JavaFXView(Stage stage, TurnController controller) {
+        this.stage = Objects.requireNonNull(stage);
+        this.controller = Objects.requireNonNull(controller);
+        room = new RestaurantScene();
+        controller.beginTurn();
+        TurnResolution arrival = controller.processArrival();
+        turnStart = controller.snapshot();
+        state = new RestaurantUiState(turnStart, null, null, new Feedback(String.join(" ", arrival.events()), false));
+        screen = new RestaurantScreen(room, state, this::handle);
+        stage.setScene(new Scene(screen.getRoot(), 1280, 720));
+        stage.sizeToScene();
+        displayTurnStart(turnStart);
+    }
+
+    /** Event handlers collect a pair; reading it never blocks or submits a command. */
+    public TurnChoicesDTO getManagerChoices() { return currentChoices; }
+    public void displayTurnStart(GameSnapshot snapshot) {
+        state = new RestaurantUiState(snapshot, pendingChef, lastTurn, state.feedback());
+        screen.setUiState(state);
+    }
+    public void displayError(String message) { refresh(new Feedback(message, true)); }
+    public void displayTurnSummary(TurnResolution resolution) {
+        refresh(new Feedback("Turn " + resolution.turn() + " complete.", false));
+    }
+    public void displayEndGameResult(GameResult result) { refresh(new Feedback(result.toString(), false)); }
+    public void dispose() { screen.dispose(); room.dispose(); }
+
+    private void handle(GameSnapshot renderedSnapshot, Command command) {
+        if (renderedSnapshot != state.snapshot()) {
+            displayError("That choice is stale. Choose a current task.");
+            return;
+        }
+
+        GameSnapshot snapshot = state.snapshot();
+        if (snapshot.phase() == TurnPhase.GAME_OVER) { displayError("Game complete."); return; }
+        if (command instanceof WaiterCommand waiter) {
+            var action = snapshot.waiterActions().stream().filter(a -> a.decision().equals(waiter.decision())).findFirst().orElse(null);
+            if (action == null) { displayError("Choose an available Waiter task."); return; }
+            TurnResolution response = controller.submitWaiterDecision(waiter.decision());
+            if (!response.isSuccessful()) { displayError(response.errorMessage()); return; }
+            acceptedWaiter = action;
+            refresh(new Feedback("Waiter task selected. Choose the Chef task, then Resolve Turn.", false));
+            return;
+        }
+        if (command instanceof ChefCommand chef) {
+            if (!snapshot.chefActions().contains(chef.decision())) { displayError("Choose an available Chef task."); return; }
+            pendingChef = chef.decision();
+            currentChoices = new TurnChoicesDTO(acceptedWaiter.decision(), pendingChef);
+            refresh(new Feedback("Chef task selected. Resolve Turn to apply it.", false));
+            return;
+        }
+        if (command instanceof ResolveTurn && pendingChef != null) {
+            TurnResolution response = controller.submitChefDecision(getManagerChoices().getChefChoice());
+            if (!response.isSuccessful()) { displayError(response.errorMessage()); return; }
+            lastTurn = new ResolvedTurn(turnStart, controller.snapshot(), acceptedWaiter, pendingChef, response);
+            acceptedWaiter = null;
+            pendingChef = null;
+            currentChoices = null;
+            if (controller.phase() != TurnPhase.GAME_OVER) {
+                controller.beginTurn();
+                controller.processArrival();
+                turnStart = controller.snapshot();
+                displayTurnStart(turnStart);
+            }
+            displayTurnSummary(response);
+            if (controller.phase() == TurnPhase.GAME_OVER) displayEndGameResult(controller.result());
+            return;
+        }
+        displayError("That choice is unavailable. Your selection has been kept.");
+    }
+
+    private void refresh(Feedback feedback) {
+        state = new RestaurantUiState(controller.snapshot(), pendingChef, lastTurn, feedback);
+        screen.setUiState(state);
+    }
+}

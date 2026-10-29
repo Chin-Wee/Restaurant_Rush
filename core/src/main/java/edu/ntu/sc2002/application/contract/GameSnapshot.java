@@ -21,7 +21,7 @@ public record GameSnapshot(int turn, TurnPhase phase, int revenueCents, Double a
     public record CustomerView(String id, int arrivalOrdinal, CustomerState state, int satisfaction,
             Integer tableId, Integer queuePosition) {}
     public record TableView(int id, String occupantId) {}
-    public record OrderView(int id, String customerId, String item, OrderStatus status,
+    public record OrderView(String customerId, String item, OrderStatus status,
             int unitsDone, int preparationUnits, int lockedPriceCents) {}
     /** Seating names the table the engine will allocate; callers do not choose a different table. */
     public record WaiterAction(WaiterChoiceDTO decision, Integer tableId, String customerId) {}
