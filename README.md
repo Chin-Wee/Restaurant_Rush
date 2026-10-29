@@ -162,6 +162,27 @@ customers are queued, seated/eating/paying customers occupy a table, and paid or
 abandoned customers occupy neither. Payment eligibility remains checked by
 Cashier before the parameterless commit operations.
 
+## Lookup contract verification (2026-10-30)
+
+`Restaurant.tableFor`, `Restaurant.oldestPaymentCandidate`,
+`Table.getSeatedCustomer` and `Menu.getItemByName` return a value or throw when their
+lookup precondition is unmet. The controller checks occupancy and payment
+eligibility before querying. Waiting customers are not queried for a table;
+seated abandonment captures its table before clearing membership. Payment uses
+the customer's existing table before committing and releasing it.
+
+The two single-use eating/payment and abandonment helpers are inlined into the
+turn-resolution operation. Shared validation, owned-data read accessors and the
+event/payment/departure buffers remain to preserve command behavior and
+`lastResolution()` data. The supplied diagram is unchanged.
+
+Both modules built offline. External checks passed 573 logic assertions and
+compared every snapshot and command response for 1,800 turns across 100 seeds
+with the preceding implementation; the traces were byte-identical. Offline CLI
+victory, defeat, Pasta, priority seating, rejection/retry and three EOF paths also
+produced byte-identical output. The API change is limited to absent domain
+lookups throwing instead of returning null.
+
 ## Logic parity verification (2026-10-29)
 
 The offline core/visualization build passed. External checks made 644 independent
@@ -189,10 +210,26 @@ import java.util.*;
 class PhaseOneCheck {
     public static void main(String[] args) {
         var room = new Restaurant(2);
+        try {
+            room.getTables().get(0).getSeatedCustomer();
+            throw new AssertionError("An empty table must reject customer lookup");
+        } catch (IllegalStateException expected) {}
+        try {
+            room.oldestPaymentCandidate(1);
+            throw new AssertionError("No payment candidate exists");
+        } catch (IllegalStateException expected) {}
+        try {
+            room.getMenu().getItemByName("missing");
+            throw new AssertionError("An unknown menu item must be rejected");
+        } catch (IllegalArgumentException expected) {}
         var first = new Customer("C1", 1, 2027);
         var chosen = new Customer("C2", 2, 2028);
         room.registerArrival(first);
         room.registerArrival(chosen);
+        try {
+            room.tableFor(first);
+            throw new AssertionError("A queued customer has no table");
+        } catch (IllegalArgumentException expected) {}
         assert room.seat(chosen).getSeatedCustomer() == chosen;
         assert room.getWaitingQueue().getQueuedCustomers().equals(List.of(first));
         assert room.getStaff(Waiter.class).seatCustomer(room.getWaitingQueue(), room.getTables().get(1));

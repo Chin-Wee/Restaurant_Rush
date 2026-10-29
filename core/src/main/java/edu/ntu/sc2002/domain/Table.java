@@ -29,5 +29,9 @@ public final class Table {
         seatedCustomer = null;
     }
     public boolean isOccupied() { return seatedCustomer != null; }
-    public Customer getSeatedCustomer() { return seatedCustomer; }
+    /** Requires an occupied table; use isOccupied before looking up its customer. */
+    public Customer getSeatedCustomer() {
+        if (!isOccupied()) throw new IllegalStateException("Table is empty");
+        return seatedCustomer;
+    }
 }

@@ -93,34 +93,25 @@ public class TurnController {
             events.add("Chef advances " + target.getId() + "'s " + target.order().getMenuItem().getName()
                     + " (" + target.order().unitsDone() + "/" + target.order().getMenuItem().getPrepUnitsNeeded() + ").");
         } else events.add("Chef waits.");
-        executeEatingAndPayment();
-        executeWaitingAndAbandonment();
-        turnStarted = false;
-        phase = currentTurn == config.maxTurns() ? TurnPhase.GAME_OVER : TurnPhase.START_OF_TURN;
-        return response(null);
-    }
-
-    private void executeEatingAndPayment() {
         for (Customer customer : activeCustomers()) customer.finishEating(currentTurn);
-        Customer paying = restaurant.oldestPaymentCandidate(currentTurn);
-        if (paying != null) {
+        boolean paymentDue = restaurant.getTables().stream().filter(Table::isOccupied)
+                .map(Table::getSeatedCustomer).anyMatch(c -> c.canPay(currentTurn));
+        if (paymentDue) {
+            Customer paying = restaurant.oldestPaymentCandidate(currentTurn);
             paymentRecord = restaurant.getStaff(Cashier.class).processPayment(paying, restaurant, currentTurn);
             scoreBoard.recordPayment(paymentRecord);
             events.add(paymentRecord.customerId() + " pays " + money(paymentRecord.lockedPriceCents()) + ".");
         }
-    }
-
-    private void executeWaitingAndAbandonment() {
         List<String> left = new ArrayList<>();
         for (Customer customer : activeCustomers()) {
             if (customer.getState() == CustomerState.WAITING || customer.getState() == CustomerState.SEATED) {
                 customer.isApplySatisfactionLoss();
                 if (customer.getSatisfaction() == 0) {
+                    Table table = customer.getState() == CustomerState.SEATED ? restaurant.tableFor(customer) : null;
                     customer.leave();
                     if (restaurant.getWaitingQueue().getQueuedCustomers().contains(customer)) {
                         restaurant.getWaitingQueue().dequeueCustomer(customer);
                     }
-                    Table table = restaurant.tableFor(customer);
                     if (table != null) table.releaseTable();
                     scoreBoard.recordDeparture();
                     left.add(customer.getId()); events.add(customer.getId() + " leaves unhappy.");
@@ -128,6 +119,9 @@ public class TurnController {
             }
         }
         departures = List.copyOf(left);
+        turnStarted = false;
+        phase = currentTurn == config.maxTurns() ? TurnPhase.GAME_OVER : TurnPhase.START_OF_TURN;
+        return response(null);
     }
 
     private Customer customerForId(String id) {
@@ -171,7 +165,7 @@ public class TurnController {
         var tables = restaurant.getTables().stream().map(t -> new GameSnapshot.TableView(t.tableId(),
                 t.isOccupied() ? t.getSeatedCustomer().getId() : null)).toList();
         var customerViews = customers.stream().map(c -> {
-            Table table = restaurant.tableFor(c);
+            Table table = c.getState() == CustomerState.WAITING ? null : restaurant.tableFor(c);
             int queueIndex = waiting.indexOf(c.getId());
             return new GameSnapshot.CustomerView(c.getId(), c.arrivalOrdinal(), c.getState(), c.getSatisfaction(),
                     table == null ? null : table.tableId(), queueIndex < 0 ? null : queueIndex + 1);

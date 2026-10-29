@@ -15,7 +15,9 @@ public final class Menu {
         items.add(new MenuItem(item.getName(), item.getPriceCents(), item.getPrepUnitsNeeded()));
     }
     public List<MenuItem> getItems() { return List.copyOf(items); }
+    /** Requires the name of an existing menu item. */
     public MenuItem getItemByName(String name) {
-        return items.stream().filter(i -> i.getName().equalsIgnoreCase(name)).findFirst().orElse(null);
+        return items.stream().filter(i -> i.getName().equalsIgnoreCase(name)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown menu item: " + name));
     }
 }

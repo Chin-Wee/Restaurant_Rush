@@ -65,22 +65,27 @@ public final class Restaurant {
         waitingQueue.dequeueCustomer(customer);
         return table;
     }
+    /** Requires the customer to occupy a table in this restaurant. */
     public Table tableFor(Customer customer) {
         Objects.requireNonNull(customer);
-        return tables.stream().filter(t -> t.getSeatedCustomer() == customer).findFirst().orElse(null);
+        return tables.stream().filter(Table::isOccupied).filter(t -> t.getSeatedCustomer() == customer).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Customer is not at a table"));
     }
-    /** Oldest means earliest arrival among customers eligible on this turn. */
+    /** Requires an eligible customer; oldest means earliest arrival among those eligible this turn. */
     public Customer oldestPaymentCandidate(int turn) {
         return tables.stream().filter(Table::isOccupied).map(Table::getSeatedCustomer).filter(c -> c.canPay(turn))
-                .min(Comparator.comparingInt(Customer::arrivalOrdinal)).orElse(null);
+                .min(Comparator.comparingInt(Customer::arrivalOrdinal))
+                .orElseThrow(() -> new IllegalStateException("No customer is eligible to pay this turn"));
     }
     /** Cashier validates the explicit turn before calling this operation. */
     public PaymentRecord completePayment(Customer customer) {
-        if (customer == null || customer.getState() != CustomerState.READY_TO_PAY
-                || tableFor(customer) == null) throw new IllegalStateException("Customer is not ready to pay");
+        if (customer == null || customer.getState() != CustomerState.READY_TO_PAY) {
+            throw new IllegalStateException("Customer is not ready to pay");
+        }
+        Table table = tableFor(customer);
         PaymentRecord record = new PaymentRecord(customer.getId(), customer.order().lockedPriceCents(), customer.getSatisfaction());
         customer.paid();
-        tableFor(customer).releaseTable();
+        table.releaseTable();
         return record;
     }
 }
