@@ -168,7 +168,7 @@ public final class RestaurantScreen {
     private void renderTopHud() {
         topHud.getChildren().setAll(
                 identifiedHud("RESTAURANT RUSH", "game-title"),
-                identifiedHud("STAGE 1", "stage-label"),
+                identifiedHud("STAGE 2", "stage-label"),
                 hudText("TURN " + uiState.snapshot().turn()),
                 hudText("PHASE " + uiState.phase()),
                 hudText("REVENUE " + formatMoney(uiState.snapshot().revenueCents())),
@@ -227,7 +227,7 @@ public final class RestaurantScreen {
         for (CustomerView customer : uiState.snapshot().customers()) {
             String location = customer.tableId() != null ? "Table " + customer.tableId()
                     : customer.queuePosition() != null ? "Queue #" + customer.queuePosition() : customer.state().name();
-            Label identity = smallText(customer.id() + " · " + location + " · " + customer.satisfaction() + "/100");
+            Label identity = smallText(customer.id() + " · " + customer.type() + " · " + location + " · " + customer.satisfaction() + "/100");
             OrderView order = uiState.snapshot().orders().stream().filter(o -> o.customerId().equals(customer.id())).findFirst().orElse(null);
             rows.getChildren().addAll(identity, smallText((order == null ? "No food chosen · No order" : order.item() + " · " + order.status())
                     + " · Cashier: " + customer.state()));
@@ -245,7 +245,7 @@ public final class RestaurantScreen {
         if (uiState.snapshot().orders().isEmpty()) rows.getChildren().add(smallText("No active orders"));
         for (OrderView order : uiState.snapshot().orders()) {
             rows.getChildren().add(smallText(order.customerId() + " · " + order.item() + " · " + order.status()
-                    + " " + order.unitsDone() + "/" + order.preparationUnits()));
+                    + " " + order.unitsDone() + "/" + order.preparationUnits() + " · " + formatMoney(order.lockedPriceCents())));
         }
         VBox content = new VBox(3, scrollable(rows), smallText("Cashier · payment is automatic"));
         return card("TABLES / ORDERS", content);

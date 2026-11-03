@@ -19,7 +19,7 @@ public final class ConsoleApp {
             System.err.println("Seed must be a 64-bit integer.");
             return;
         }
-        System.out.println("Restaurant Rush — Stage 1 (seed " + seed + ")");
-        new ConsoleUI(new java.util.Scanner(System.in), new TurnController(GameConfig.stageOne(seed))).run();
+        System.out.println("Restaurant Rush — Stage 2 (seed " + seed + ")");
+        new ConsoleUI(new java.util.Scanner(System.in), new TurnController(GameConfig.stageTwo(seed))).run();
     }
 }

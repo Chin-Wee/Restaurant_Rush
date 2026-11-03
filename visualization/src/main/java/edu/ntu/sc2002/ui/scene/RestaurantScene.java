@@ -15,6 +15,7 @@ import edu.ntu.sc2002.application.contract.WaiterTaskType;
 import edu.ntu.sc2002.application.contract.ChefTaskType;
 import edu.ntu.sc2002.domain.OrderStatus;
 import edu.ntu.sc2002.domain.customer.CustomerState;
+import edu.ntu.sc2002.domain.customer.CustomerType;
 import edu.ntu.sc2002.presentation.RestaurantUiState.ResolvedTurn;
 import java.util.Map;
 import java.util.Objects;
@@ -90,6 +91,7 @@ public final class RestaurantScene {
             null, null, Direction.DOWN);
     private final Map<String, Actor> actors = new LinkedHashMap<>();
     private Map<String, Placement> customerPlacements = Map.of();
+    private Map<String, CustomerType> customerTypes = Map.of();
     private final Set<String> exiting = new HashSet<>();
     private final Map<String, Dish> dishes = new LinkedHashMap<>();
     private long previousAnimationNanos;
@@ -177,6 +179,9 @@ public final class RestaurantScene {
             }
         }
         customerPlacements = targets;
+        Map<String, CustomerType> types = new HashMap<>();
+        snapshot.customers().forEach(c -> types.put(c.id(), c.type()));
+        customerTypes = Map.copyOf(types);
         Set<String> activeOrders = new HashSet<>();
         snapshot.orders().stream().filter(o -> o.status() == OrderStatus.READY || o.status() == OrderStatus.SERVED)
                 .forEach(order -> {
@@ -443,16 +448,32 @@ public final class RestaurantScene {
             drawActorTag(graphics, waiter, "Alex");
             drawActorTag(graphics, cashier, "Amelia");
             actors.forEach((id, actor) -> {
-                if (actor != chef && actor != waiter && actor != cashier) drawActorTag(graphics, actor, id);
+                if (actor != chef && actor != waiter && actor != cashier) drawCustomerTag(graphics, actor, id);
             });
         });
     }
 
     private static void drawWhiteText(GraphicsContext graphics, String label, double x, double y) {
+        drawText(graphics, label, x, y, Color.WHITE);
+    }
+
+    private static void drawText(GraphicsContext graphics, String label, double x, double y, Color color) {
         graphics.setFill(Color.web("#252B3D"));
         graphics.fillText(label, x + 1, y + 1);
-        graphics.setFill(Color.WHITE);
+        graphics.setFill(color);
         graphics.fillText(label, x, y);
+    }
+
+    /** Regular guests show their ID; VIPs are tagged gold and Critics red so the player can spot them in the queue. */
+    private void drawCustomerTag(GraphicsContext graphics, Actor actor, String id) {
+        CustomerType type = customerTypes.getOrDefault(id, CustomerType.REGULAR);
+        String label = type == CustomerType.REGULAR ? id : id + " " + type;
+        Color color = switch (type) {
+            case VIP -> Color.web("#FFD54A");
+            case CRITIC -> Color.web("#FF6B6B");
+            case REGULAR -> Color.WHITE;
+        };
+        drawText(graphics, label, actor.column * TILE_SIZE + TILE_SIZE / 2, (actor.row - 1) * TILE_SIZE - 8, color);
     }
 
     private static void drawActorTag(GraphicsContext graphics, Actor actor, String label) {

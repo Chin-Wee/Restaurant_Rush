@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-/** Runs the Stage 1 six-step game loop. UI never mutates domain state. */
+/** Runs the six-step game loop. UI never mutates domain state. */
 public class TurnController {
     private final GameConfig config;
     private final Restaurant restaurant;
@@ -49,10 +49,11 @@ public class TurnController {
         if (!turnStarted || phase != TurnPhase.START_OF_TURN) throw new IllegalStateException("Begin the turn before processing arrivals");
         if (config.arrivalSchedule().contains(currentTurn)) {
             int ordinal = config.arrivalSchedule().indexOf(currentTurn) + 1;
-            Customer customer = new Customer("C" + ordinal, ordinal, config.randomSeed() + ordinal);
+            Customer customer = CustomerFactory.createCustomer(config.arrivalTypes().get(ordinal - 1),
+                    "C" + ordinal, ordinal, config.randomSeed() + ordinal);
             restaurant.registerArrival(customer);
             newArrival = customer.getId();
-            events.add("Arrival: " + customer.getId() + " joins the queue.");
+            events.add("Arrival: " + customer.getId() + " (" + customer.getType() + ") joins the queue.");
         }
         phase = TurnPhase.MANAGER_CHOICES;
         return response(null);
@@ -71,7 +72,9 @@ public class TurnController {
             }
             case TAKE_ORDER -> {
                 Order order = restaurant.getStaff(Waiter.class).takeOrder(target, restaurant.getMenu());
-                events.add(target.getId() + " orders " + order.getMenuItem().getName() + ".");
+                int menuPrice = order.getMenuItem().getPriceCents();
+                events.add(target.getId() + " orders " + order.getMenuItem().getName() + " for " + money(order.lockedPriceCents())
+                        + (order.lockedPriceCents() == menuPrice ? "" : " (menu " + money(menuPrice) + ")") + ".");
             }
             case SERVE -> {
                 restaurant.getStaff(Waiter.class).serve(target, currentTurn);
@@ -105,7 +108,7 @@ public class TurnController {
         List<String> left = new ArrayList<>();
         for (Customer customer : activeCustomers()) {
             if (customer.getState() == CustomerState.WAITING || customer.getState() == CustomerState.SEATED) {
-                customer.isApplySatisfactionLoss();
+                customer.applyTurnEndDecay();
                 if (customer.getSatisfaction() == 0) {
                     Table table = customer.getState() == CustomerState.SEATED ? restaurant.tableFor(customer) : null;
                     customer.leave();
@@ -167,7 +170,7 @@ public class TurnController {
         var customerViews = customers.stream().map(c -> {
             Table table = c.getState() == CustomerState.WAITING ? null : restaurant.tableFor(c);
             int queueIndex = waiting.indexOf(c.getId());
-            return new GameSnapshot.CustomerView(c.getId(), c.arrivalOrdinal(), c.getState(), c.getSatisfaction(),
+            return new GameSnapshot.CustomerView(c.getId(), c.arrivalOrdinal(), c.getType(), c.getState(), c.getSatisfaction(),
                     table == null ? null : table.tableId(), queueIndex < 0 ? null : queueIndex + 1);
         }).toList();
         var orders = customers.stream().filter(c -> c.order() != null).map(c ->

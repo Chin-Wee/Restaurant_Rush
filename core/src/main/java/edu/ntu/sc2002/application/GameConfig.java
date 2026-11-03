@@ -1,14 +1,31 @@
 package edu.ntu.sc2002.application;
 
+import edu.ntu.sc2002.domain.customer.CustomerType;
+import java.util.Collections;
 import java.util.List;
 
-public record GameConfig(int maxTurns, int numTables, List<Integer> arrivalSchedule, long randomSeed) {
+/** Base setting; arrivalTypes.get(i) is the type of the customer arriving on arrivalSchedule.get(i). */
+public record GameConfig(int maxTurns, int numTables, List<Integer> arrivalSchedule, List<CustomerType> arrivalTypes,
+        long randomSeed) {
+    private static final List<Integer> BASE_ARRIVALS = List.of(1, 4, 7, 10, 13, 16);
+
     public GameConfig {
         arrivalSchedule = List.copyOf(arrivalSchedule);
-        if (maxTurns != 18 || numTables != 2 || !arrivalSchedule.equals(List.of(1, 4, 7, 10, 13, 16))) {
-            throw new IllegalArgumentException("Stage 1 requires 18 turns, two tables, and arrivals on turns 1, 4, 7, 10, 13, 16");
+        arrivalTypes = List.copyOf(arrivalTypes);
+        if (maxTurns != 18 || numTables != 2 || !arrivalSchedule.equals(BASE_ARRIVALS)
+                || arrivalTypes.size() != arrivalSchedule.size()) {
+            throw new IllegalArgumentException("The base setting requires 18 turns, two tables, and one typed arrival on turns 1, 4, 7, 10, 13, 16");
         }
     }
 
-    public static GameConfig stageOne(long seed) { return new GameConfig(18, 2, List.of(1, 4, 7, 10, 13, 16), seed); }
+    /** Six Regular customers; kept to check that Stage 1 behaviour is unchanged. */
+    public static GameConfig stageOne(long seed) {
+        return new GameConfig(18, 2, BASE_ARRIVALS, Collections.nCopies(BASE_ARRIVALS.size(), CustomerType.REGULAR), seed);
+    }
+
+    /** The turn-4 arrival is a VIP and the turn-10 arrival is a Critic; the rest are Regular. */
+    public static GameConfig stageTwo(long seed) {
+        return new GameConfig(18, 2, BASE_ARRIVALS, List.of(CustomerType.REGULAR, CustomerType.VIP, CustomerType.REGULAR,
+                CustomerType.CRITIC, CustomerType.REGULAR, CustomerType.REGULAR), seed);
+    }
 }

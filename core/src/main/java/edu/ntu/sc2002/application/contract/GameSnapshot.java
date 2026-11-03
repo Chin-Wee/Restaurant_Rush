@@ -2,6 +2,7 @@ package edu.ntu.sc2002.application.contract;
 
 import edu.ntu.sc2002.domain.OrderStatus;
 import edu.ntu.sc2002.domain.customer.CustomerState;
+import edu.ntu.sc2002.domain.customer.CustomerType;
 import java.util.List;
 
 /**
@@ -23,7 +24,7 @@ public record GameSnapshot(int turn, TurnPhase phase, int revenueCents, Double a
         chefActions = List.copyOf(chefActions);
     }
 
-    public record CustomerView(String id, int arrivalOrdinal, CustomerState state, int satisfaction,
+    public record CustomerView(String id, int arrivalOrdinal, CustomerType type, CustomerState state, int satisfaction,
             Integer tableId, Integer queuePosition) {}
     public record TableView(int id, String occupantId) {}
     public record OrderView(String customerId, String item, OrderStatus status,

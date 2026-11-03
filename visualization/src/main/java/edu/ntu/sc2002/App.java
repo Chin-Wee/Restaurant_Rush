@@ -29,7 +29,7 @@ public class App extends Application {
         }
         final long selectedSeed = seed;
         Runnable openRestaurant = () -> {
-            gameView = new JavaFXView(stage, new TurnController(GameConfig.stageOne(selectedSeed)));
+            gameView = new JavaFXView(stage, new TurnController(GameConfig.stageTwo(selectedSeed)));
             ((javafx.scene.layout.Region) stage.getScene().getRoot()).setPrefSize(
                     Integer.parseInt(options.getOrDefault("width", "1280")),
                     Integer.parseInt(options.getOrDefault("height", "720")));

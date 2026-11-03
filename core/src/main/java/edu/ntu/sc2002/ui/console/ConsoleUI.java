@@ -118,10 +118,10 @@ public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
                 snapshot.turn(), TurnController.money(snapshot.revenueCents()), satisfaction(snapshot.averagePaidSatisfaction()));
         System.out.println("Queue: " + snapshot.waitingQueue());
         snapshot.tables().forEach(t -> System.out.println("Table " + t.id() + ": " + (t.occupantId() == null ? "Available" : t.occupantId())));
-        snapshot.customers().forEach(c -> System.out.println(c.id() + " " + c.state() + " satisfaction " + c.satisfaction()
+        snapshot.customers().forEach(c -> System.out.println(c.id() + " " + c.type() + " " + c.state() + " satisfaction " + c.satisfaction()
                 + (c.tableId() == null ? "" : " Table " + c.tableId())));
         snapshot.orders().forEach(o -> System.out.println(o.customerId() + " " + o.item() + " " + o.status()
-                + " " + o.unitsDone() + "/" + o.preparationUnits()));
+                + " " + o.unitsDone() + "/" + o.preparationUnits() + " bill " + TurnController.money(o.lockedPriceCents())));
         staffTasks(snapshot).forEach(System.out::println);
     }
 

@@ -79,6 +79,18 @@ For a defeat with the same seed, choose Waiter **4** and Chef **2** on all 18 tu
 Expected: **DEFEAT**, served 0, paid 0, departures 2, revenue **$0.00**, average
 paid satisfaction **N/A**. Both runs use all 18 turns.
 
+## Stage 2: VIP and Critic customers
+
+The base setting keeps six arrivals on turns 1, 4, 7, 10, 13 and 16. The turn-4 arrival (C2) is a **VIP** and the turn-10 arrival (C4) is a **Critic**; the rest are Regular. `GameConfig.stageOne(seed)` still builds six Regulars.
+
+| Customer | Satisfaction loss per waiting turn | Bill | Order choice |
+| --- | --- | --- | --- |
+| Regular | 8 | Full price | Seeded random (`Random(seed + arrival ordinal)`) |
+| VIP | 5 | 10% off, rounded to the nearest cent | Seeded random |
+| Critic | 12 | Full price | Always **Pasta**; the most expensive item if it is not on the menu |
+
+`Customer` is now abstract; `RegularCustomer`, `VIPCustomer` and `CriticCustomer` override `applyTurnEndDecay`, `calculateBill` and `chooseMenuItem`. `CustomerFactory` is the only place that maps a `CustomerType` to a subclass. The bill is locked into the order when it is taken, e.g. `C2 orders Pasta for $16.20 (menu $18.00).` The GUI tags VIPs in gold and Critics in red.
+
 ## Javadoc
 
 Javadoc comes with JDK 17. Generate the core API documentation from the repository root:
