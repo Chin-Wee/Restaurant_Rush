@@ -20,7 +20,7 @@ public final class Waiter extends Staff {
         return true;
     }
     public Order takeOrder(Customer customer, Menu menu) {
-        var item = customer.chooseMenuItem(menu.getItems());
+        var item = customer.chooseItem(menu);
         return customer.placeOrder(item, customer.calculateBill(item.getPriceCents()));
     }
     public void serve(Customer customer, int turn) { customer.serveOrder(turn); }

@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 public class TurnController {
     private final GameConfig config;
     private final Restaurant restaurant;
+    private final CustomerFactory customerFactory = new CustomerFactory();
     private final ScoreBoard scoreBoard = new ScoreBoard();
     private TurnPhase phase = TurnPhase.START_OF_TURN;
     private int currentTurn = 1;
@@ -49,7 +50,7 @@ public class TurnController {
         if (!turnStarted || phase != TurnPhase.START_OF_TURN) throw new IllegalStateException("Begin the turn before processing arrivals");
         if (config.arrivalSchedule().contains(currentTurn)) {
             int ordinal = config.arrivalSchedule().indexOf(currentTurn) + 1;
-            Customer customer = CustomerFactory.createCustomer(config.arrivalTypes().get(ordinal - 1),
+            Customer customer = customerFactory.createCustomer(config.customerTypeAt(currentTurn),
                     "C" + ordinal, ordinal, config.randomSeed() + ordinal);
             restaurant.registerArrival(customer);
             newArrival = customer.getId();
@@ -108,7 +109,7 @@ public class TurnController {
         List<String> left = new ArrayList<>();
         for (Customer customer : activeCustomers()) {
             if (customer.getState() == CustomerState.WAITING || customer.getState() == CustomerState.SEATED) {
-                customer.applyTurnEndDecay();
+                customer.applySatisfactionLoss();
                 if (customer.getSatisfaction() == 0) {
                     Table table = customer.getState() == CustomerState.SEATED ? restaurant.tableFor(customer) : null;
                     customer.leave();

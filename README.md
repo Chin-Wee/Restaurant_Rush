@@ -89,7 +89,7 @@ The base setting keeps six arrivals on turns 1, 4, 7, 10, 13 and 16. The turn-4 
 | VIP | 5 | 10% off, rounded to the nearest cent | Seeded random |
 | Critic | 12 | Full price | Always **Pasta**; the most expensive item if it is not on the menu |
 
-`Customer` is now abstract; `RegularCustomer`, `VIPCustomer` and `CriticCustomer` override `applyTurnEndDecay`, `calculateBill` and `chooseMenuItem`. `CustomerFactory` is the only place that maps a `CustomerType` to a subclass. The bill is locked into the order when it is taken, e.g. `C2 orders Pasta for $16.20 (menu $18.00).` The GUI tags VIPs in gold and Critics in red.
+`Customer` is now abstract; `RegularCustomer`, `VIPCustomer` and `CriticCustomer` supply `satisfactionLossPerTurn` and `calculateBill`; `CriticCustomer` also overrides `chooseItem`. `TurnController` creates arrivals through its `CustomerFactory`, the only place that maps a `CustomerType` to a subclass. The bill is locked into the order when it is taken, e.g. `C2 orders Pasta for $16.20 (menu $18.00).` The GUI tags VIPs in gold and Critics in red.
 
 ## Javadoc
 
