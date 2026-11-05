@@ -57,14 +57,6 @@ public final class Restaurant {
         }
         waitingQueue.enqueueCustomer(customer);
     }
-    public Table seat(Customer customer) {
-        if (!waitingQueue.getQueuedCustomers().contains(customer)) throw new IllegalArgumentException("Customer is not queued");
-        Table table = tables.stream().filter(t -> !t.isOccupied()).findFirst()
-                .orElseThrow(() -> new IllegalStateException("No table is free"));
-        table.assignCustomer(customer);
-        waitingQueue.dequeueCustomer(customer);
-        return table;
-    }
     /** Requires the customer to occupy a table in this restaurant. */
     public Table tableFor(Customer customer) {
         Objects.requireNonNull(customer);

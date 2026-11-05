@@ -151,12 +151,12 @@ customer, preserves all other queue positions, and rejects a missing target.
 There is no zero-argument dequeue or separate public remove operation. The
 renamed `Customer.isApplySatisfactionLoss(): void` applies the regular waiting
 penalty. `FoodTypes` defines SALAD, BURGER and PASTA and drives base-menu setup.
-`Restaurant` no longer exposes the removed `getCustomers()` or `abandon()` APIs.
-It implements selected seating through the drawn `seat(customer)` operation:
-validate the selection and free table, assign the customer, then dequeue that
-customer. The drawn `Waiter.seatCustomer(queue, table)` seats the queue head when
-used directly. The controller still charges every manager seating decision as
-its one Waiter task, so this division does not add another action per turn.
+`Restaurant` no longer exposes the removed `getCustomers()`, `abandon()` or
+`seat(customer)` APIs. The `TurnController` obtains the Waiter and calls
+`Waiter.seatCustomer(customer, queue, table)`, which validates the selected
+customer and free table, assigns the customer, then dequeues that customer. The
+controller still charges every manager seating decision as its one Waiter task,
+so this division does not add another action per turn.
 
 The controller has no customer-history list or separate completed-turn counter.
 Active customers are collected from the queue and occupied tables in arrival
@@ -234,17 +234,30 @@ class PhaseOneCheck {
             room.getMenu().getItemByName("missing");
             throw new AssertionError("An unknown menu item must be rejected");
         } catch (IllegalArgumentException expected) {}
-        var first = new Customer("C1", 1, 2027);
-        var chosen = new Customer("C2", 2, 2028);
+        try {
+            Restaurant.class.getMethod("seat", Customer.class);
+            throw new AssertionError("Restaurant.seat(Customer) must be removed");
+        } catch (NoSuchMethodException expected) {}
+        var first = new RegularCustomer("C1", 1, 2027);
+        var chosen = new RegularCustomer("C2", 2, 2028);
         room.registerArrival(first);
         room.registerArrival(chosen);
         try {
             room.tableFor(first);
             throw new AssertionError("A queued customer has no table");
         } catch (IllegalArgumentException expected) {}
-        assert room.seat(chosen).getSeatedCustomer() == chosen;
+        var waiter = room.getStaff(Waiter.class);
+        var chosenTable = room.getTables().get(1);
+        var freeTable = room.getTables().get(0);
+        assert waiter.seatCustomer(chosen, room.getWaitingQueue(), chosenTable);
+        assert chosenTable.getSeatedCustomer() == chosen;
         assert room.getWaitingQueue().getQueuedCustomers().equals(List.of(first));
-        assert room.getStaff(Waiter.class).seatCustomer(room.getWaitingQueue(), room.getTables().get(1));
+        assert !waiter.seatCustomer(first, room.getWaitingQueue(), chosenTable);
+        assert chosenTable.getSeatedCustomer() == chosen;
+        assert room.getWaitingQueue().getQueuedCustomers().equals(List.of(first));
+        var unqueued = new RegularCustomer("C3", 3, 2029);
+        assert !waiter.seatCustomer(unqueued, room.getWaitingQueue(), freeTable);
+        assert !freeTable.isOccupied();
         var game = new TurnController(GameConfig.stageOne(2026));
         for (int turn = 1; turn <= 18; turn++) {
             game.beginTurn();

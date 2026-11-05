@@ -68,7 +68,12 @@ public class TurnController {
         switch (decision.taskType()) {
             case WAIT -> events.add("Waiter waits.");
             case SEAT -> {
-                Table table = restaurant.seat(target);
+                Waiter waiter = restaurant.getStaff(Waiter.class);
+                Table table = restaurant.getTables().stream().filter(t -> !t.isOccupied()).findFirst()
+                        .orElseThrow(() -> new IllegalStateException("No table is free"));
+                if (!waiter.seatCustomer(target, restaurant.getWaitingQueue(), table)) {
+                    return response("Unable to seat " + target.getId() + ".");
+                }
                 events.add("Waiter seats " + target.getId() + " at Table " + table.tableId() + ".");
             }
             case TAKE_ORDER -> {

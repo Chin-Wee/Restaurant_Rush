@@ -9,12 +9,12 @@ import java.util.Objects;
 
 public final class Waiter extends Staff {
     public Waiter(String staffId) { super(staffId); }
-    /** Seats the next queued customer; Restaurant.seat handles an explicitly selected customer. */
-    public boolean seatCustomer(WaitingQueue queue, Table table) {
+    /** Seats an explicitly selected queued customer at a free table. */
+    public boolean seatCustomer(Customer customer, WaitingQueue queue, Table table) {
+        Objects.requireNonNull(customer);
         Objects.requireNonNull(queue);
         Objects.requireNonNull(table);
-        if (queue.isEmpty() || table.isOccupied()) return false;
-        Customer customer = queue.getQueuedCustomers().get(0);
+        if (table.isOccupied() || !queue.getQueuedCustomers().contains(customer)) return false;
         table.assignCustomer(customer);
         queue.dequeueCustomer(customer);
         return true;
