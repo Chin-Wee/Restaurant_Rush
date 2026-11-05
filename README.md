@@ -40,7 +40,12 @@ Should show `17.x.x`.
 java -cp core/target/classes edu.ntu.sc2002.ConsoleApp
 ```
 
-## Stage 1 reproducible runs
+## Stage 1: original three-item schedule (historical)
+
+These outcomes belong to the original three-item Stage 1 menu. This branch's
+Stage 3 menu adds three combo meals and the Host has its own manager choice, so
+seeded dish choices and seating differ here; use the Stage 3 runs below for this
+checkout.
 
 Run `java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026` after building.
 Waiter choices: 1 seat, 2 take order, 3 serve, 4 wait. Chef choices: 1 advance one
@@ -89,7 +94,116 @@ The base setting keeps six arrivals on turns 1, 4, 7, 10, 13 and 16. The turn-4 
 | VIP | 5 | 10% off, rounded to the nearest cent | Seeded random |
 | Critic | 12 | Full price | Always **Pasta**; the most expensive item if it is not on the menu |
 
-`Customer` is now abstract; `RegularCustomer`, `VIPCustomer` and `CriticCustomer` supply `satisfactionLossPerTurn` and `calculateBill`; `CriticCustomer` also overrides `chooseItem`. `TurnController` creates arrivals through its `CustomerFactory`, the only place that maps a `CustomerType` to a subclass. The bill is locked into the order when it is taken, e.g. `C2 orders Pasta for $16.20 (menu $18.00).` The GUI tags VIPs in gold and Critics in red.
+`Customer` is now abstract; `RegularCustomer`, `VIPCustomer` and `CriticCustomer` supply `satisfactionLossPerTurn` and `calculateBill`; `CriticCustomer` also overrides `chooseItem`. `TurnController` creates arrivals through its `CustomerFactory`, the only place that maps a `CustomerType` to a subclass. The bill is locked into the order when it is taken, e.g. `C2 orders Pasta for $16.20 (menu $18.00).` The GUI tags VIPs in gold and Critics in red. Stage 3 changed one shared method name: `Customer.applyWaitingLoss()` replaces `isApplySatisfactionLoss()` and applies the type's waiting loss only while the customer is waiting for a table or food.
+
+## Stage 3: Host, combo meals and Happy Hour
+
+The Phase 3 class diagram (`RestaurantRush_ClassDiagram_Phase3.drawio`) governs this
+stage. Stage 3 runs on the same six typed arrivals as Stage 2 through
+`GameConfig.stageTwo(seed)`; there is no separate stage-three factory in the
+diagram, so the Stage 3 rules below are always active in this folder.
+
+### Rules
+
+- **Host.** The manager gives the Host one task each turn: seat any one queued
+  customer at the first free table, or wait. This is in addition to the Waiter's
+  task and does not consume it. `Host.seatCustomer(customer, queue, table)` is the
+  same operation as the Waiter's. If every table is occupied, only Wait is
+  available and the customer keeps queueing.
+- **Combo meals.** `Menu` keeps the three base items (Salad $9.00 / 1 unit,
+  Burger $15.00 / 1 unit, Pasta $18.00 / 2 units) and adds every pair as a
+  `ComboMeal`: Salad + Burger $21.60 / 2 units, Salad + Pasta $24.30 / 3 units,
+  Burger + Pasta $29.70 / 3 units. Preparation is the sum of the two components;
+  the price is 90% of their combined price, rounded to the nearest cent.
+- **Combo choice rule.** A customer chooses uniformly at random from the whole
+  menu (base items and combos) with `Random(seed + arrival ordinal)`, the same
+  deterministic rule used in earlier stages. Critics keep their preference:
+  Pasta, or the most expensive item if Pasta is absent. Combo items are ordinary
+  `MenuItem` values to the order and kitchen flow, so they use the same
+  preparation, serve and payment timing.
+- **Happy Hour.** The manager may switch it on once per game at the start of a
+  turn, before the Waiter acts. It applies to orders taken that turn and the
+  next. Orders taken while it is active cost 20% less; the customer's own
+  discount applies first, then Happy Hour, and the price is locked at order
+  time. Example: a VIP's Burger is $15.00 x 0.9 x 0.8 = $10.80. Customers still
+  waiting for a table or food recover 15 satisfaction at the start of each
+  active turn, capped at 100. Orders already placed and customers who have left
+  are unaffected. The CLI prints `AVAILABLE`, `ACTIVE (n turns remaining)` or
+  `EXHAUSTED`; the GUI shows the same status in the Manager card and disables the
+  button after use.
+
+### Files added or changed for Stage 3
+
+| File | Change and reason |
+| --- | --- |
+| `domain/staff/Host.java` | New staff role with `seatCustomer(customer, queue, table)`, the same seating operation as the Waiter. |
+| `application/contract/HostTaskType.java`, `HostDecision.java` | The manager's Host task (`SEAT`/`WAIT`) and its selected customer. |
+| `domain/menu/ComboMeal.java` | New `MenuItem` subtype holding two components; computes the sum of prep units and 90% price. |
+| `domain/menu/MenuItem.java` | Removed `final` so `ComboMeal` can extend it, as the diagram's generalization requires. |
+| `domain/menu/Menu.java` | Builds the three pairwise combos; `addItem` stores the supplied item so a combo keeps its runtime type. |
+| `domain/HappyHourPolicy.java`, `domain/HappyHourStatus.java` | New once-per-game policy and its `AVAILABLE`/`ACTIVE`/`EXHAUSTED` states. |
+| `domain/Restaurant.java` | Owns the `HappyHourPolicy`, registers the Host, allows one of each of the four roles, and no longer seats customers itself. |
+| `domain/staff/Waiter.java` | `seatCustomer(customer, queue, table)` seats the manager's selected customer; `takeOrder` accepts the policy and applies Happy Hour after the customer's own bill calculation. |
+| `domain/customer/Customer.java` | Renamed the waiting penalty to `applyWaitingLoss`; added `isWaitingForTableOrFood` for recovery and departure checks. |
+| `application/TurnController.java` | Host, Waiter and Chef decision handling, first-free-table allocation for seating, Happy Hour activation and validation, per-active-turn recovery, locked discounted orders, and duration decrement. |
+| `application/contract/GameSnapshot.java`, `TurnChoicesDTO.java` | Snapshot exposes Host, Waiter and Chef actions plus happy-hour status/duration; manager choices carry the Host, Waiter and Chef decisions and the activation flag. |
+| Console and JavaFX UI | Host and Happy Hour prompts/cards, status display and Stage 3 label. |
+
+Menu helper `Menu.addItem` no longer copies its argument: a defensive copy would
+flatten a `ComboMeal` into a plain `MenuItem`. No caller relied on the copy.
+
+Seating follows the updated Phase 3 diagram, synced with the Stage 2 refactor:
+the Waiter and the Host expose the same `seatCustomer(customer, queue, table)`
+operation, the controller picks the first free table, and `Restaurant.seat(customer)`
+was removed. The Waiter and the Host both seat the manager's selected customer;
+the Host has its own once-per-turn decision and never consumes the Waiter's task.
+
+### Stage 3 reproducible runs (seed 2026)
+
+Build first with `.\mvnw.cmd -Pvisualization clean install` (Windows) or
+`./mvnw -Pvisualization clean install`, then run
+`java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026`.
+
+For a victory, activate Happy Hour on turn 1 (answer `1`), then use:
+
+| Turn | Host task | Waiter task | Chef task |
+| --- | --- | --- | --- |
+| 1 | Seat C1 | Take order C1 | Advance C1 |
+| 2 | Wait | Wait | Advance C1 |
+| 3 | Wait | Serve C1 | Wait |
+| 4 | Seat C2 | Take order C2 | Advance C2 |
+| 5 | Wait | Wait | Advance C2 |
+| 6 | Wait | Serve C2 | Wait |
+| 7 | Seat C3 | Take order C3 | Advance C3 |
+| 8 | Wait | Serve C3 | Wait |
+| 9 | Wait | Wait | Wait |
+| 10 | Seat C4 | Take order C4 | Advance C4 |
+| 11 | Wait | Wait | Advance C4 |
+| 12 | Wait | Serve C4 | Wait |
+| 13 | Seat C5 | Take order C5 | Advance C5 |
+| 14 | Wait | Wait | Advance C5 |
+| 15 | Wait | Wait | Advance C5 |
+| 16 | Seat C6 | Serve C5 | Wait |
+| 17 | Wait | Take order C6 | Advance C6 |
+| 18 | Wait | Wait | Advance C6 |
+
+The Host uses `1` plus a customer ID to seat and `2` to wait. Seating each
+arrival lets the Waiter go straight to ordering.
+C1's seeded combo is Salad + Burger and its Happy Hour bill is $17.28 (menu
+$21.60); C2 is the VIP on Pasta ($16.20), C4 is the Critic on Pasta ($18.00),
+and C5/C6 choose Burger + Pasta ($29.70). Expected after turn 18: **VICTORY**,
+served 5, paid 5, departures 0, revenue **$90.18**, average paid satisfaction
+**85.2**, turns used 18.
+
+For a defeat with the same seed, answer `2` to the Happy Hour prompt every turn,
+choose Waiter **4** and Chef **2** on all 18 turns, and give the Host `1` + C1 on
+turn 1, `1` + C2 on turn 4, `1` + C3 on turn 14, and `2` (wait) on every other
+turn. Expected: **DEFEAT**, served 0, paid 0, departures 2, revenue **$0.00**,
+average paid satisfaction **N/A**, turns used 18.
+
+To check VIP-first stacking directly, use the victory schedule but activate
+Happy Hour on turn 4 instead; C2's Pasta is then billed at $12.96
+($18.00 x 0.9 x 0.8) and the game still ends in victory.
 
 ## Javadoc
 
@@ -130,7 +244,7 @@ Menu media players are disposed on shutdown so the normal launch path exits clea
 
 - `TurnController` holds `ScoreBoard`, the sole owner of service/departure counts,
   paid revenue, paid-time satisfaction and victory evaluation. `Restaurant` owns
-  two tables, its queue, menu and three staff (one of each role). Active customers
+  two tables, its queue, menu and four staff (Waiter, Chef, Cashier and Host). Active customers
   are derived from the queue and occupied tables; ScoreBoard retains the totals
   after payment or abandonment.
 - Each `Customer` owns zero or one `Order`. Orders have no customer back-reference
@@ -149,14 +263,16 @@ Menu media players are disposed on shutdown so the normal launch path exits clea
 The updated queue contract is `dequeueCustomer(customer): void`. It removes that
 customer, preserves all other queue positions, and rejects a missing target.
 There is no zero-argument dequeue or separate public remove operation. The
-renamed `Customer.isApplySatisfactionLoss(): void` applies the regular waiting
-penalty. `FoodTypes` defines SALAD, BURGER and PASTA and drives base-menu setup.
-`Restaurant` no longer exposes the removed `getCustomers()` or `abandon()` APIs.
-It implements selected seating through the drawn `seat(customer)` operation:
-validate the selection and free table, assign the customer, then dequeue that
-customer. The drawn `Waiter.seatCustomer(queue, table)` seats the queue head when
-used directly. The controller still charges every manager seating decision as
-its one Waiter task, so this division does not add another action per turn.
+`Customer.applyWaitingLoss(): void` method (named `isApplySatisfactionLoss` in
+the Stage 1 contract) applies the regular waiting penalty. `FoodTypes` defines SALAD, BURGER and PASTA and drives base-menu setup.
+`Restaurant` no longer exposes the removed `getCustomers()`, `abandon()` or
+`seat(customer)` APIs. Seating runs through the staff: the controller validates
+the choice, picks the first free table, and `Waiter.seatCustomer(customer, queue,
+table)` assigns and dequeues the manager's selected customer. The Stage 3 Host
+exposes the same operation and receives its own once-per-turn `HostDecision`, so
+it never consumes the Waiter's task. The controller still charges every manager
+seating decision as its one Waiter task, so this division does not add another
+Waiter action per turn.
 
 The controller has no customer-history list or separate completed-turn counter.
 Active customers are collected from the queue and occupied tables in arrival
@@ -234,23 +350,26 @@ class PhaseOneCheck {
             room.getMenu().getItemByName("missing");
             throw new AssertionError("An unknown menu item must be rejected");
         } catch (IllegalArgumentException expected) {}
-        var first = new Customer("C1", 1, 2027);
-        var chosen = new Customer("C2", 2, 2028);
+        var first = new RegularCustomer("C1", 1, 2027);
+        var chosen = new RegularCustomer("C2", 2, 2028);
         room.registerArrival(first);
         room.registerArrival(chosen);
         try {
             room.tableFor(first);
             throw new AssertionError("A queued customer has no table");
         } catch (IllegalArgumentException expected) {}
-        assert room.seat(chosen).getSeatedCustomer() == chosen;
+        var waiter = room.getStaff(Waiter.class);
+        assert waiter.seatCustomer(chosen, room.getWaitingQueue(), room.getTables().get(0));
+        assert room.getTables().get(0).getSeatedCustomer() == chosen;
         assert room.getWaitingQueue().getQueuedCustomers().equals(List.of(first));
-        assert room.getStaff(Waiter.class).seatCustomer(room.getWaitingQueue(), room.getTables().get(1));
+        assert waiter.seatCustomer(first, room.getWaitingQueue(), room.getTables().get(1));
         var game = new TurnController(GameConfig.stageOne(2026));
         for (int turn = 1; turn <= 18; turn++) {
             game.beginTurn();
             assert game.currentTurn() == turn && game.snapshot().turnsUsed() == turn - 1;
             game.processArrival();
             if (turn == 16) assert game.snapshot().waitingQueue().contains("C6");
+            assert game.submitHostDecision(new HostDecision(HostTaskType.WAIT, null)).isSuccessful();
             assert game.submitWaiterDecision(new WaiterChoiceDTO(WaiterTaskType.WAIT, null)).isSuccessful();
             assert game.submitChefDecision(new ChefChoiceDTO(ChefTaskType.WAIT, null)).isSuccessful();
             assert game.snapshot().turnsUsed() == turn && game.lastResolution().turn() == turn;
