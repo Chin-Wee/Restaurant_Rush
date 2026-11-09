@@ -3,6 +3,7 @@ package edu.ntu.sc2002.ui.console;
 import edu.ntu.sc2002.application.*;
 import edu.ntu.sc2002.application.contract.*;
 import edu.ntu.sc2002.domain.GameResult;
+import edu.ntu.sc2002.domain.HappyHourStatus;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
@@ -38,8 +39,16 @@ public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
 
     public TurnChoicesDTO getManagerChoices() {
         TurnResolution response;
+        boolean happyHourRequested = readHappyHourChoice();
+        HostChoiceDTO host;
         WaiterChoiceDTO waiter;
         ChefChoiceDTO chef;
+        do {
+            host = readHostChoice();
+            response = controller.submitHostDecision(host);
+            if (!response.isSuccessful()) displayError(response.errorMessage());
+        } while (!response.isSuccessful());
+        displayEvents(response);
         do {
             waiter = readWaiterChoice();
             response = controller.submitWaiterDecision(waiter);
@@ -52,7 +61,45 @@ public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
             response = controller.submitChefDecision(chef);
             if (!response.isSuccessful()) displayError(response.errorMessage());
         } while (!response.isSuccessful());
-        return new TurnChoicesDTO(waiter, chef);
+        return new TurnChoicesDTO(waiter, chef, host, happyHourRequested);
+    }
+
+    /** Stage 3: offered once per game at the start of a turn, before the Host acts. */
+    private boolean readHappyHourChoice() {
+        GameSnapshot snapshot = controller.snapshot();
+        if (snapshot.happyHourStatus() != HappyHourStatus.AVAILABLE || snapshot.hostActions().isEmpty()) return false;
+        while (true) {
+            System.out.println("Happy Hour is available: 20% off orders for two turns, waiting customers recover 15/turn.");
+            System.out.println("Activate Happy Hour? [1 yes, 2 no]:");
+            int option = readNumber();
+            if (option == 2) return false;
+            if (option != 1) { displayError("Choose 1 or 2."); continue; }
+            TurnResolution response = controller.activateHappyHour();
+            if (!response.isSuccessful()) { displayError(response.errorMessage()); continue; }
+            displayEvents(response);
+            System.out.println("Happy Hour: " + happyHourLabel(controller.snapshot()));
+            return true;
+        }
+    }
+
+    /** Stage 3: the Host seats one selected queued customer, in addition to the Waiter's task. */
+    private HostChoiceDTO readHostChoice() {
+        while (true) {
+            System.out.println("Host task [1 seat, 2 wait]:");
+            int option = readNumber();
+            if (option == 2) return new HostChoiceDTO(HostTaskType.WAIT, null);
+            if (option != 1) { displayError("Choose 1 or 2."); continue; }
+            GameSnapshot snapshot = controller.snapshot();
+            var targets = snapshot.hostActions().stream()
+                    .filter(a -> a.decision().taskType() == HostTaskType.SEAT)
+                    .map(GameSnapshot.HostAction::customerId).toList();
+            if (targets.isEmpty()) { displayError("No queued customer can be seated."); continue; }
+            System.out.println("Seat which customer? " + targets);
+            String id = input.nextLine().trim();
+            var customer = snapshot.customers().stream().filter(c -> c.id().equalsIgnoreCase(id)).findFirst().orElse(null);
+            if (customer == null) { displayError("Unknown customer ID."); continue; }
+            return new HostChoiceDTO(HostTaskType.SEAT, customer.id());
+        }
     }
 
     private WaiterChoiceDTO readWaiterChoice() {
@@ -116,6 +163,7 @@ public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
         displayedEvents = 0;
         System.out.printf("%nTURN %d | Revenue %s | Average paid satisfaction %s%n",
                 snapshot.turn(), TurnController.money(snapshot.revenueCents()), satisfaction(snapshot.averagePaidSatisfaction()));
+        System.out.println("Happy Hour: " + happyHourLabel(snapshot));
         System.out.println("Queue: " + snapshot.waitingQueue());
         snapshot.tables().forEach(t -> System.out.println("Table " + t.id() + ": " + (t.occupantId() == null ? "Available" : t.occupantId())));
         snapshot.customers().forEach(c -> System.out.println(c.id() + " " + c.type() + " " + c.state() + " satisfaction " + c.satisfaction()
@@ -127,12 +175,21 @@ public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
 
     private static java.util.List<String> staffTasks(GameSnapshot snapshot) {
         java.util.List<String> labels = new java.util.ArrayList<>();
+        snapshot.hostActions().forEach(a -> labels.add("Host " + a.decision().taskType() + ": "
+                + (a.decision().taskType() == HostTaskType.WAIT ? "null" : a.customerId())));
+        if (snapshot.hostActions().isEmpty()) labels.add("Host: already acted this turn");
         snapshot.waiterActions().forEach(a -> labels.add("Waiter " + a.decision().taskType() + ": " + a.customerId()));
-        if (snapshot.chefActions().isEmpty()) labels.add("Chef: choices follow the Waiter task");
+        if (snapshot.chefActions().isEmpty()) labels.add("Chef: choices follow the Host and Waiter tasks");
         snapshot.chefActions().forEach(a -> labels.add("Chef " + a.taskType() + ": "
                 + (a.taskType() == ChefTaskType.WAIT ? "null" : a.targetCustomerId())));
         labels.add("Cashier: at most one eligible payment, automatic");
         return labels;
+    }
+
+    private static String happyHourLabel(GameSnapshot snapshot) {
+        return snapshot.happyHourStatus() == HappyHourStatus.ACTIVE
+                ? snapshot.happyHourStatus() + " (" + snapshot.happyHourRemainingTurns() + " turns remaining)"
+                : snapshot.happyHourStatus().toString();
     }
 
     public void displayError(String message) { System.out.println("Invalid choice: " + message + " Try again."); }

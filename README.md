@@ -33,12 +33,17 @@ Should show `17.x.x`.
 .\mvnw.cmd -f visualization\pom.xml javafx:run
 ```
 
+On the title screen, **Menu** reveals Easy / Medium / Hard. Easy is selected by
+default.
+
 ## Run (CLI)
 
 ```sh
 ./mvnw clean install
-java -cp core/target/classes edu.ntu.sc2002.ConsoleApp
+java -cp core/target/classes edu.ntu.sc2002.ConsoleApp [seed] [easy|medium|hard]
 ```
+
+The seed defaults to `2026` and the difficulty defaults to `easy`.
 
 ## Stage 1 reproducible runs
 
@@ -111,11 +116,33 @@ next. Orders taken while it is active get 20% off after the customer's own
 discount, and waiting or seated customers recover 15 satisfaction at the start
 of each active turn. The price stays locked once the order is taken.
 
-### Stage 3 reproducible run (seed 2026)
+### Difficulty
+
+Difficulty is data-only: it changes `GameConfig.maxTurns`, `arrivalSchedule` and
+`customerTypes`. Two tables and the same victory threshold remain. Easy is the
+default and is unchanged.
+
+| Difficulty | Turns | Arrival turns | Customer mix |
+| --- | ---: | --- | --- |
+| Easy | 18 | 1, 4, 7, 10, 13, 16 | Regular, VIP, Regular, Critic, Regular, Regular |
+| Medium | 16 | 1, 2, 4, 6, 8, 10, 12, 14 | Regular, VIP, Regular, Critic, Regular, Critic, VIP, Regular |
+| Hard | 14 | 1, 2, 3, 5, 6, 8, 9, 11, 12 | Regular, Critic, VIP, Critic, Regular, Critic, VIP, Critic, Regular |
+
+Difficulty uses the existing `GameConfig` fields only, so it adds no class,
+field or method to the class diagram.
+
+### Stage 3 reproducible runs (seed 2026)
 
 Build first with `.\mvnw.cmd -Pvisualization clean install` (Windows) or
-`./mvnw -Pvisualization clean install`, then run
-`java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026`.
+`./mvnw -Pvisualization clean install`, then run one of:
+
+```sh
+java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026 easy
+java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026 medium
+java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026 hard
+```
+
+#### Easy (default, unchanged)
 
 For a victory, activate Happy Hour on turn 1 (answer `1`), then use:
 
@@ -145,10 +172,70 @@ Expected after turn 18: **VICTORY**, served 5, paid 5, departures 0, revenue
 Burger; C2 is the VIP on Pasta billed at **$12.96** ($18.00 x 0.9 x 0.8) under
 Happy Hour; C4 is the Critic on Pasta; C5/C6 choose Burger + Pasta.
 
-For a defeat with the same seed, answer `2` to the Happy Hour prompt every turn,
-choose Host **2**, Waiter **4** and Chef **2** on all 18 turns. Expected:
+For an Easy defeat with the same seed, answer `2` to the Happy Hour prompt every
+turn, choose Host **2**, Waiter **4** and Chef **2** on all 18 turns. Expected:
 **DEFEAT**, served 0, paid 0, departures 2, revenue **$0.00**, average paid
 satisfaction **N/A**.
+
+#### Medium
+
+Activate Happy Hour on turn 1, then use:
+
+| Turn | Host task | Waiter task | Chef task |
+| --- | --- | --- | --- |
+| 1 | Seat C1 | Take order C1 | Advance C1 |
+| 2 | Seat C2 | Take order C2 | Advance C2 |
+| 3 | Wait | Wait | Advance C2 |
+| 4 | Wait | Serve C2 | Advance C1 |
+| 5 | Wait | Serve C1 | Wait |
+| 6 | Wait | Wait | Wait |
+| 7 | Wait | Seat C4 | Wait |
+| 8 | Wait | Seat C3 | Wait |
+| 9 | Wait | Take order C4 | Advance C4 |
+| 10 | Wait | Take order C3 | Advance C4 |
+| 11 | Wait | Serve C4 | Advance C3 |
+| 12 | Wait | Serve C3 | Wait |
+| 13 | Wait | Wait | Wait |
+| 14 | Seat C7 | Take order C7 | Advance C7 |
+| 15 | Seat C6 | Take order C6 | Advance C7 |
+| 16 | Wait | Serve C7 | Advance C6 |
+
+Expected: **VICTORY**, served 5, paid 4, departures 0, revenue **$57.24**,
+average paid satisfaction **60.5**, turns used 16.
+
+For a Medium defeat, answer `2` to Happy Hour every turn and choose Host **2**,
+Waiter **4** and Chef **2** on all 16 turns. Expected: **DEFEAT**, served 0,
+paid 0, departures 3, revenue **$0.00**, average paid satisfaction **N/A**,
+turns used 16.
+
+#### Hard
+
+Activate Happy Hour on turn 1, then use:
+
+| Turn | Host task | Waiter task | Chef task |
+| --- | --- | --- | --- |
+| 1 | Seat C1 | Take order C1 | Advance C1 |
+| 2 | Seat C2 | Take order C2 | Advance C2 |
+| 3 | Wait | Wait | Advance C1 |
+| 4 | Wait | Serve C1 | Advance C2 |
+| 5 | Wait | Serve C2 | Wait |
+| 6 | Wait | Wait | Wait |
+| 7 | Wait | Seat C3 | Wait |
+| 8 | Seat C6 | Take order C3 | Advance C3 |
+| 9 | Wait | Serve C3 | Wait |
+| 10 | Wait | Take order C6 | Advance C6 |
+| 11 | Wait | Wait | Advance C6 |
+| 12 | Seat C7 | Serve C6 | Wait |
+| 13 | Wait | Take order C7 | Advance C7 |
+| 14 | Wait | Wait | Advance C7 |
+
+Expected: **VICTORY**, served 4, paid 4, departures 1, revenue **$57.78**,
+average paid satisfaction **67.5**, turns used 14.
+
+For a Hard defeat, answer `2` to Happy Hour every turn and choose Host **2**,
+Waiter **4** and Chef **2** on all 14 turns. Expected: **DEFEAT**, served 0,
+paid 0, departures 3, revenue **$0.00**, average paid satisfaction **N/A**,
+turns used 14.
 
 The GUI has a Host card, a Manager card for Happy Hour, and the Host actor in
 the room. The room shows the front three queued guests plus a `+N waiting`

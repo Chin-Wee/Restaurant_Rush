@@ -2,8 +2,8 @@ package edu.ntu.sc2002.domain.menu;
 
 import java.util.Objects;
 
-/** A Phase 1 dish with a fixed price and preparation requirement. */
-public final class MenuItem {
+/** A dish with a fixed price and preparation requirement; Stage 3 combos extend it. */
+public class MenuItem {
     private final String name;
     private final int priceCents;
     private final int prepUnitsNeeded;

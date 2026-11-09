@@ -39,13 +39,13 @@ public final class StartMenuScreen {
     private static final double FINAL_SCROLL_SPEED = 0.1;
     private static final double[] DEPTH_SPEED = {0.08, 0.2, 0.36, 0.55, 0.76, 1.0};
     private static final Color HARD_COLOR = Color.web("#C77B82");
-    private static final Color MEDIUM_COLOR = Color.web("#527558");
+    private static final Color MEDIUM_COLOR = Color.web("#E6B450");
     private static final Color EASY_COLOR = Color.web("#A4C98A");
 
     private final Pane root = new Pane();
     private final ImageView[][] cityTiles = new ImageView[6][2];
     private final double[] cityOffsets = new double[6];
-    private final Text credits = new Text("Chin Wee, Lucas and\nHecheng present");
+    private final Text credits = new Text("Group 5 presents");
     private final Text title = new Text("Restaurant Rush");
     private final Button startButton = new Button("Start Game");
     private final Button menuButton = new Button("Menu");
@@ -57,7 +57,8 @@ public final class StartMenuScreen {
             hardButton, mediumButton, easyButton};
     private final Button[] difficultyButtons = {easyButton, mediumButton, hardButton};
     private Button selectedDifficulty;
-    private final Runnable onStart;
+    private String selectedDifficultyName = "easy";
+    private final java.util.function.Consumer<String> onStart;
     private final MediaPlayer wind;
     private final MediaPlayer menuTrack;
     private final MediaPlayer muffledTrack;
@@ -74,7 +75,7 @@ public final class StartMenuScreen {
     private boolean muffledStarted;
     private double buttonFontSize = 64;
 
-    public StartMenuScreen(Runnable onStart) {
+    public StartMenuScreen(java.util.function.Consumer<String> onStart) {
         this.onStart = onStart;
         wind = createPlayer("/menu-wind.wav");
         menuTrack = createPlayer("/Potsu - sunny.mp3");
@@ -121,14 +122,14 @@ public final class StartMenuScreen {
         configureButton(startButton, this::startGame);
         configureButton(menuButton, () -> transitionDifficultyMenu(true));
         configureButton(hideButton, () -> transitionDifficultyMenu(false));
-        configureButton(hardButton, () -> selectDifficulty(hardButton, HARD_COLOR));
-        configureButton(mediumButton, () -> selectDifficulty(mediumButton, MEDIUM_COLOR));
-        configureButton(easyButton, () -> selectDifficulty(easyButton, EASY_COLOR));
+        configureButton(hardButton, () -> selectDifficulty(hardButton, HARD_COLOR, "hard"));
+        configureButton(mediumButton, () -> selectDifficulty(mediumButton, MEDIUM_COLOR, "medium"));
+        configureButton(easyButton, () -> selectDifficulty(easyButton, EASY_COLOR, "easy"));
         for (Button button : buttons) {
             button.setOpacity(0);
             button.setDisable(true);
         }
-        selectDifficulty(mediumButton, MEDIUM_COLOR);
+        selectDifficulty(easyButton, EASY_COLOR, "easy");
 
         root.widthProperty().addListener((observable, oldValue, newValue) -> layoutScene());
         root.heightProperty().addListener((observable, oldValue, newValue) -> layoutScene());
@@ -357,11 +358,12 @@ public final class StartMenuScreen {
         transition.play();
     }
 
-    private void selectDifficulty(Button selected, Color color) {
+    private void selectDifficulty(Button selected, Color color, String difficulty) {
         if (selectedDifficulty != null) {
             selectedDifficulty.setTextFill(Color.WHITE);
         }
         selectedDifficulty = selected;
+        selectedDifficultyName = difficulty;
         selectedDifficulty.setTextFill(color);
     }
 
@@ -378,7 +380,7 @@ public final class StartMenuScreen {
         }
         stop(menuTrack);
         playMuffledFrom(Math.max(0, menuPosition - 2));
-        onStart.run();
+        onStart.accept(selectedDifficultyName);
     }
 
     private void playMuffledFrom(double seconds) {

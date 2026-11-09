@@ -9,17 +9,22 @@ public record RestaurantUiState(GameSnapshot snapshot, ChefChoiceDTO pendingChef
     public boolean complete() { return snapshot.phase() == TurnPhase.GAME_OVER; }
     public String phase() {
         return complete() ? "COMPLETE" : canResolveTurn() ? "RESOLVE"
+                : !snapshot.hostActions().isEmpty() ? "HOST"
                 : snapshot.waiterActions().isEmpty() ? "CHEF" : "WAITER";
     }
 
-    public sealed interface Command permits WaiterCommand, ChefCommand, ResolveTurn {}
+    public sealed interface Command permits WaiterCommand, ChefCommand, HostCommand, ResolveTurn, HappyHourCommand {}
     public record WaiterCommand(WaiterChoiceDTO decision) implements Command {}
     public record ChefCommand(ChefChoiceDTO decision) implements Command {}
+    /** Stage 3: the Host seats one selected queued customer, or waits. */
+    public record HostCommand(HostChoiceDTO decision) implements Command {}
     public record ResolveTurn() implements Command {}
+    /** Stage 3: switches on the once-per-game Happy Hour at the start of a turn. */
+    public record HappyHourCommand() implements Command {}
     public record Feedback(String message, boolean rejected) {}
     /** One successful Resolve, retaining engine data instead of copying metrics or visual positions. */
     public record ResolvedTurn(GameSnapshot before, GameSnapshot after,
-            GameSnapshot.WaiterAction waiter, ChefChoiceDTO chef, TurnResolution resolution) {
+            GameSnapshot.WaiterAction waiter, HostChoiceDTO host, ChefChoiceDTO chef, TurnResolution resolution) {
         public String chefCustomerId() {
             return chef.targetCustomerId();
         }
