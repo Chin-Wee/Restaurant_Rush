@@ -33,12 +33,17 @@ Should show `17.x.x`.
 .\mvnw.cmd -f visualization\pom.xml javafx:run
 ```
 
+On the title screen, **Menu** reveals Easy / Medium / Hard. **Easy is selected
+by default** and is the original Stage 3 game.
+
 ## Run (CLI)
 
 ```sh
 ./mvnw clean install
-java -cp core/target/classes edu.ntu.sc2002.ConsoleApp
+java -cp core/target/classes edu.ntu.sc2002.ConsoleApp [seed] [easy|medium|hard]
 ```
+
+The seed defaults to `2026` and the difficulty defaults to `easy`.
 
 ## Stage 1: original three-item schedule (historical)
 
@@ -99,9 +104,11 @@ The base setting keeps six arrivals on turns 1, 4, 7, 10, 13 and 16. The turn-4 
 ## Stage 3: Host, combo meals and Happy Hour
 
 The Phase 3 class diagram (`RestaurantRush_ClassDiagram_Phase3.drawio`) governs this
-stage. Stage 3 runs on the same six typed arrivals as Stage 2 through
-`GameConfig.stageTwo(seed)`; there is no separate stage-three factory in the
-diagram, so the Stage 3 rules below are always active in this folder.
+stage. Stage 3 supports three data-only difficulty presets. **Easy** keeps the
+original Stage 2 schedule and mix through `GameConfig.stageTwo(seed)`; **Medium**
+and **Hard** use the existing `GameConfig` constructor with a shorter turn limit,
+a denser single-arrival schedule and a different customer-type mix. No new
+class-diagram class, field or method is added for difficulty.
 
 ### Rules
 
@@ -122,15 +129,33 @@ diagram, so the Stage 3 rules below are always active in this folder.
   `MenuItem` values to the order and kitchen flow, so they use the same
   preparation, serve and payment timing.
 - **Happy Hour.** The manager may switch it on once per game at the start of a
-  turn, before the Waiter acts. It applies to orders taken that turn and the
+  turn, before the Host acts. It applies to orders taken that turn and the
   next. Orders taken while it is active cost 20% less; the customer's own
   discount applies first, then Happy Hour, and the price is locked at order
   time. Example: a VIP's Burger is $15.00 x 0.9 x 0.8 = $10.80. Customers still
   waiting for a table or food recover 15 satisfaction at the start of each
   active turn, capped at 100. Orders already placed and customers who have left
   are unaffected. The CLI prints `AVAILABLE`, `ACTIVE (n turns remaining)` or
-  `EXHAUSTED`; the GUI shows the same status in the Manager card and disables the
-  button after use.
+  `EXHAUSTED`; the GUI shows the same status in the Manager card, enables the
+  button only before the Host acts, and disables it after use.
+
+### Difficulty
+
+Difficulty only changes `GameConfig` data. Every preset still has two tables,
+one typed arrival per listed turn, and the same victory threshold (`paid >= 4`,
+`revenue >= $45.00`, `average paid satisfaction >= 60`).
+
+| Difficulty | Turns | Arrival turns | Customer mix |
+| --- | ---: | --- | --- |
+| Easy | 18 | 1, 4, 7, 10, 13, 16 | Regular, VIP, Regular, Critic, Regular, Regular |
+| Medium | 16 | 1, 2, 4, 6, 8, 10, 12, 14 | Regular, VIP, Regular, Critic, Regular, Critic, VIP, Regular |
+| Hard | 14 | 1, 2, 3, 5, 6, 8, 9, 11, 12 | Regular, Critic, VIP, Critic, Regular, Critic, VIP, Critic, Regular |
+
+Easy is unchanged. Medium adds two arrivals and removes two turns. Hard adds
+three more arrivals, removes four more turns and leans on Critics, so the
+manager has to choose which customers to seat, order for and serve. Arrival
+turns must be strictly increasing; multiple customers on the same turn are not
+supported.
 
 ### Files added or changed for Stage 3
 
@@ -145,9 +170,13 @@ diagram, so the Stage 3 rules below are always active in this folder.
 | `domain/Restaurant.java` | Owns the `HappyHourPolicy`, registers the Host, allows one of each of the four roles, and no longer seats customers itself. |
 | `domain/staff/Waiter.java` | `seatCustomer(customer, queue, table)` seats the manager's selected customer; `takeOrder` accepts the policy and applies Happy Hour after the customer's own bill calculation. |
 | `domain/customer/Customer.java` | Renamed the waiting penalty to `applyWaitingLoss`; added `isWaitingForTableOrFood` for recovery and departure checks. |
+| `application/GameConfig.java` | Difficulty uses the existing record fields; validation now accepts any strictly increasing single-arrival schedule within `maxTurns`, still with two tables. |
 | `application/TurnController.java` | Host, Waiter and Chef decision handling, first-free-table allocation for seating, Happy Hour activation and validation, per-active-turn recovery, locked discounted orders, and duration decrement. |
 | `application/contract/GameSnapshot.java`, `TurnChoicesDTO.java` | Snapshot exposes Host, Waiter and Chef actions plus happy-hour status/duration; manager choices carry the Host, Waiter and Chef decisions and the activation flag. |
-| Console and JavaFX UI | Host and Happy Hour prompts/cards, status display and Stage 3 label. |
+| `ui/console/ConsoleUI.java` | Host prompt, Host-first ordering and Happy Hour prompt/status. |
+| `ConsoleApp.java`, `visualization/App.java`, `ui/StartMenuScreen.java` | Difficulty argument/menu selection and the Easy/Medium/Hard `GameConfig` presets; Easy is the default. |
+| `visualization/.../RestaurantScreen.java`, `JavaFXView.java` | Host card, Host-first gating, Chef gating, Happy Hour card and Stage 3 label. |
+| `visualization/.../RestaurantScene.java` | Adds the Host actor; it meets guests on a free neighbouring tile, escorts them to the chair, then returns to its stand. The room shows the first three queued guests plus a `+N waiting` count; the customer card still lists the full queue. |
 
 Menu helper `Menu.addItem` no longer copies its argument: a defensive copy would
 flatten a `ComboMeal` into a plain `MenuItem`. No caller relied on the copy.
@@ -161,8 +190,19 @@ the Host has its own once-per-turn decision and never consumes the Waiter's task
 ### Stage 3 reproducible runs (seed 2026)
 
 Build first with `.\mvnw.cmd -Pvisualization clean install` (Windows) or
-`./mvnw -Pvisualization clean install`, then run
-`java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026`.
+`./mvnw -Pvisualization clean install`, then run one of:
+
+```sh
+java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026 easy
+java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026 medium
+java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026 hard
+```
+
+The Host uses `1` plus a customer ID to seat and `2` to wait. The Waiter uses
+`1` seat, `2` take order, `3` serve and `4` wait; the Chef uses `1` advance and
+`2` wait. In every schedule below, activate Happy Hour on turn 1 where stated.
+
+#### Easy (default, unchanged)
 
 For a victory, activate Happy Hour on turn 1 (answer `1`), then use:
 
@@ -187,23 +227,92 @@ For a victory, activate Happy Hour on turn 1 (answer `1`), then use:
 | 17 | Wait | Take order C6 | Advance C6 |
 | 18 | Wait | Wait | Advance C6 |
 
-The Host uses `1` plus a customer ID to seat and `2` to wait. Seating each
-arrival lets the Waiter go straight to ordering.
 C1's seeded combo is Salad + Burger and its Happy Hour bill is $17.28 (menu
 $21.60); C2 is the VIP on Pasta ($16.20), C4 is the Critic on Pasta ($18.00),
 and C5/C6 choose Burger + Pasta ($29.70). Expected after turn 18: **VICTORY**,
 served 5, paid 5, departures 0, revenue **$90.18**, average paid satisfaction
 **85.2**, turns used 18.
 
-For a defeat with the same seed, answer `2` to the Happy Hour prompt every turn,
-choose Waiter **4** and Chef **2** on all 18 turns, and give the Host `1` + C1 on
+For an Easy defeat, answer `2` to the Happy Hour prompt every turn, choose
+Waiter **4** and Chef **2** on all 18 turns, and give the Host `1` + C1 on
 turn 1, `1` + C2 on turn 4, `1` + C3 on turn 14, and `2` (wait) on every other
 turn. Expected: **DEFEAT**, served 0, paid 0, departures 2, revenue **$0.00**,
 average paid satisfaction **N/A**, turns used 18.
 
-To check VIP-first stacking directly, use the victory schedule but activate
+To check VIP-first stacking directly, use the Easy victory schedule but activate
 Happy Hour on turn 4 instead; C2's Pasta is then billed at $12.96
 ($18.00 x 0.9 x 0.8) and the game still ends in victory.
+
+#### Medium
+
+Activate Happy Hour on turn 1, then use:
+
+| Turn | Host task | Waiter task | Chef task |
+| --- | --- | --- | --- |
+| 1 | Seat C1 | Take order C1 | Advance C1 |
+| 2 | Seat C2 | Take order C2 | Advance C2 |
+| 3 | Wait | Wait | Advance C2 |
+| 4 | Wait | Serve C2 | Advance C1 |
+| 5 | Wait | Serve C1 | Wait |
+| 6 | Wait | Wait | Wait |
+| 7 | Wait | Seat C4 | Wait |
+| 8 | Wait | Seat C3 | Wait |
+| 9 | Wait | Take order C4 | Advance C4 |
+| 10 | Wait | Take order C3 | Advance C4 |
+| 11 | Wait | Serve C4 | Advance C3 |
+| 12 | Wait | Serve C3 | Wait |
+| 13 | Wait | Wait | Wait |
+| 14 | Seat C7 | Take order C7 | Advance C7 |
+| 15 | Seat C6 | Take order C6 | Advance C7 |
+| 16 | Wait | Serve C7 | Advance C6 |
+
+Expected: **VICTORY**, served 5, paid 4, departures 0, revenue **$57.24**,
+average paid satisfaction **60.5**, turns used 16. The paid threshold is met
+exactly, so ignoring the extra arrivals or serving the wrong pair fails.
+
+For a Medium defeat, answer `2` to Happy Hour every turn and choose Host **2**,
+Waiter **4** and Chef **2** on all 16 turns. Expected: **DEFEAT**, served 0,
+paid 0, departures 3, revenue **$0.00**, average paid satisfaction **N/A**,
+turns used 16.
+
+#### Hard
+
+Activate Happy Hour on turn 1, then use:
+
+| Turn | Host task | Waiter task | Chef task |
+| --- | --- | --- | --- |
+| 1 | Seat C1 | Take order C1 | Advance C1 |
+| 2 | Seat C2 | Take order C2 | Advance C2 |
+| 3 | Wait | Wait | Advance C1 |
+| 4 | Wait | Serve C1 | Advance C2 |
+| 5 | Wait | Serve C2 | Wait |
+| 6 | Wait | Wait | Wait |
+| 7 | Wait | Seat C3 | Wait |
+| 8 | Seat C6 | Take order C3 | Advance C3 |
+| 9 | Wait | Serve C3 | Wait |
+| 10 | Wait | Take order C6 | Advance C6 |
+| 11 | Wait | Wait | Advance C6 |
+| 12 | Seat C7 | Serve C6 | Wait |
+| 13 | Wait | Take order C7 | Advance C7 |
+| 14 | Wait | Wait | Advance C7 |
+
+Expected: **VICTORY**, served 4, paid 4, departures 1, revenue **$57.78**,
+average paid satisfaction **67.5**, turns used 14. This is intentionally tight:
+exactly four paid customers, one departure and no spare turn if the wrong
+customer is prioritised.
+
+For a Hard defeat, answer `2` to Happy Hour every turn and choose Host **2**,
+Waiter **4** and Chef **2** on all 14 turns. Expected: **DEFEAT**, served 0,
+paid 0, departures 3, revenue **$0.00**, average paid satisfaction **N/A**,
+turns used 14.
+
+The GUI difficulty selector passes the same three `GameConfig` presets; Easy is
+selected by default. Medium and Hard were verified through the CLI, and the Easy
+GUI victory and defeat were driven through the real ComboBox and Button controls
+with an external harness on seed 2026, reproducing the CLI totals. The harness
+was kept outside the checkout and removed after the run. The top HUD wraps instead of clipping when the window is
+narrow, and the Host meets a guest on a free neighbouring tile, escorts them to
+the chair, then returns to its stand.
 
 ## Javadoc
 
@@ -400,9 +509,12 @@ network access. To launch the GUI directly with a reproducible seed:
 ./mvnw -o -f visualization/pom.xml javafx:run -Djavafx.args="--gameDirect=true --seed=2026"
 ```
 
-Use the victory/defeat schedules above in either frontend. In the GUI select a
-Waiter task and Submit, select a Chef task and Submit, then Resolve. Newly taken
-orders are available immediately in the Chef dropdown.
+Use the victory/defeat schedules above in either frontend. In the GUI, activate
+Happy Hour if desired, then select the Host task and Submit, select the Waiter
+task and Submit, select the Chef task and Submit, then Resolve. The Waiter card
+stays disabled until the Host has acted, and the Chef card stays disabled until
+both the Host and Waiter have acted. Newly taken orders are available
+immediately in the Chef dropdown.
 
 The assignment's Pasta example is reproducible with seed **2027**: seat C1 on
 turn 1; take C1's order and advance it on turn 2; Waiter Wait and advance C1 on
