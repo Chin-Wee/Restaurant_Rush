@@ -2,6 +2,15 @@ package edu.ntu.sc2002.application.contract;
 
 import java.util.Objects;
 
+/**
+ * One manager decision set for a turn: Host, Waiter and Chef commands plus the optional Happy Hour
+ * request. The compact constructor defensively copies the nested command records.
+ *
+ * @param waiterChoice Waiter command
+ * @param chefChoice Chef command
+ * @param hostChoice Host command
+ * @param activateHappyHour whether the manager requested Happy Hour at the start of the turn
+ */
 public record TurnChoicesDTO(WaiterChoiceDTO waiterChoice, ChefChoiceDTO chefChoice,
         HostChoiceDTO hostChoice, boolean activateHappyHour) {
     public TurnChoicesDTO {

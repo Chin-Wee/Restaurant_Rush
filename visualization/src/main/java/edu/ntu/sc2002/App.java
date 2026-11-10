@@ -14,6 +14,7 @@ import edu.ntu.sc2002.domain.customer.CustomerType;
 import edu.ntu.sc2002.presentation.JavaFXView;
 import edu.ntu.sc2002.ui.StartMenuScreen;
 
+/** JavaFX application entry point that selects difficulty and opens the start menu or game screen. */
 public class App extends Application {
     private StartMenuScreen startMenu;
     private JavaFXView gameView;
@@ -86,6 +87,12 @@ public class App extends Application {
         };
     }
 
+    /**
+     * JavaFX launcher.
+     *
+     * @param args JavaFX named parameters such as {@code --seed}, {@code --difficulty} and
+     *             {@code --gameDirect}
+     */
     public static void main(String[] args) {
         launch(args);
     }

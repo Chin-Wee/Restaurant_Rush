@@ -14,7 +14,13 @@ public final class HappyHourPolicy {
 
     public HappyHourPolicy() {}
 
-    /** Activates the once-per-game policy; returns false when it is already active or exhausted. */
+    /**
+     * Activates the once-per-game policy. It remains active for the activation turn and the next.
+     *
+     * @param currentTurn turn on which activation is requested
+     * @return true if activation succeeded; false if already active or exhausted
+     * @throws IllegalArgumentException if {@code currentTurn} is less than one
+     */
     public boolean activate(int currentTurn) {
         if (currentTurn < 1) throw new IllegalArgumentException("Invalid turn");
         if (status != HappyHourStatus.AVAILABLE) return false;
@@ -34,11 +40,18 @@ public final class HappyHourPolicy {
     }
     public int getRemainingTurns() { return remainingTurns; }
     public HappyHourStatus getStatus() { return status; }
-    /** 20% off, rounded to the nearest cent; applied after any customer discount. */
+    /**
+     * Applies the 20% Happy Hour discount after any customer-specific discount.
+     *
+     * @param priceCents pre-Happy-Hour price in cents
+     * @return discounted price rounded to the nearest cent
+     * @throws IllegalArgumentException if {@code priceCents} is negative
+     */
     public int applyHappyHourDiscount(int priceCents) {
         if (priceCents < 0) throw new IllegalArgumentException("Price must be nonnegative");
         return (int) (((long) priceCents * (100 - DISCOUNT_PERCENT) + 50) / 100);
     }
-    /** Satisfaction recovered at the start of each active turn by waiting customers. */
+
+    /** @return satisfaction recovered by each waiting/seated customer at the start of an active turn */
     public int recoveryAmount() { return RECOVERY_POINTS; }
 }

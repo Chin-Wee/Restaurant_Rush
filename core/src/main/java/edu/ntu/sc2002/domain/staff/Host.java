@@ -12,7 +12,15 @@ import java.util.Objects;
 public final class Host extends Staff {
     public Host(String staffId) { super(staffId); }
 
-    /** Seats the given queued customer at the given free table; mirrors Waiter.seatCustomer. */
+    /**
+     * Seats the given queued customer at the given free table; mirrors Waiter.seatCustomer.
+     *
+     * @param customer queued customer selected by the manager
+     * @param queue restaurant waiting queue
+     * @param table free table selected by the controller
+     * @return true if the customer was seated and dequeued; false if the table is occupied or the
+     *         customer is not in the queue
+     */
     public boolean seatCustomer(Customer customer, WaitingQueue queue, Table table) {
         Objects.requireNonNull(customer);
         Objects.requireNonNull(queue);

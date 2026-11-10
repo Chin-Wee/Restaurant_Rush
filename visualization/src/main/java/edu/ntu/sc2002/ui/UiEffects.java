@@ -17,9 +17,22 @@ public final class UiEffects {
     private static final String FONT_FAMILY = loadFont();
     private UiEffects() {}
 
+    /**
+     * Returns the shared display font at the requested size.
+     *
+     * @param size font size in points
+     * @return configured font
+     */
     public static Font font(double size) { return Font.font(FONT_FAMILY, size); }
+
+    /** @return a JavaFX style fragment that applies the shared display font */
     public static String fontStyle() { return "-fx-font-family: '" + FONT_FAMILY + "';"; }
 
+    /**
+     * Adds hover, press and click sound/scale feedback to a button.
+     *
+     * @param button button to decorate
+     */
     public static void install(Button button) {
         button.addEventHandler(MouseEvent.MOUSE_ENTERED, event -> {
             play(Sounds.HOVER);

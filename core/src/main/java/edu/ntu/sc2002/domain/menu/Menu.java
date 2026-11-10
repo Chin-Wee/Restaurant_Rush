@@ -1,8 +1,11 @@
 package edu.ntu.sc2002.domain.menu;
 import java.util.ArrayList;
 import java.util.List;
+/** Owns the base dishes and their Stage 3 combo variants; customers choose from this collection. */
 public final class Menu {
     private final List<MenuItem> items = new ArrayList<>();
+
+    /** Creates the three base dishes and all pairwise Stage 3 combos. */
     public Menu() {
         List<MenuItem> base = new ArrayList<>();
         for (FoodTypes type : FoodTypes.values()) base.add(switch (type) {
@@ -19,12 +22,26 @@ public final class Menu {
             }
         }
     }
+    /**
+     * Adds an item, including a combo, to the menu.
+     *
+     * @param item item to add
+     * @throws NullPointerException if {@code item} is null
+     */
     public void addItem(MenuItem item) {
         java.util.Objects.requireNonNull(item);
         items.add(item);
     }
+
     public List<MenuItem> getItems() { return List.copyOf(items); }
-    /** Requires the name of an existing menu item. */
+
+    /**
+     * Finds a menu item by case-insensitive name.
+     *
+     * @param name display name to find
+     * @return the matching item
+     * @throws IllegalArgumentException if no item has that name
+     */
     public MenuItem getItemByName(String name) {
         return items.stream().filter(i -> i.getName().equalsIgnoreCase(name)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown menu item: " + name));

@@ -2,7 +2,12 @@ package edu.ntu.sc2002.application.contract;
 
 import java.util.Objects;
 
-/** The manager's Host task; WAIT has no target customer. */
+/**
+ * The manager's Host command for one turn. SEAT addresses one queued customer; WAIT has no target.
+ *
+ * @param taskType Host action
+ * @param targetCustomerId selected customer ID, or null for WAIT
+ */
 public record HostChoiceDTO(HostTaskType taskType, String targetCustomerId) {
     public HostChoiceDTO {
         Objects.requireNonNull(taskType);

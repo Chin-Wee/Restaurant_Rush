@@ -121,6 +121,7 @@ public final class RestaurantScene {
         }
     };
 
+    /** Creates the room layers, loads visual assets and starts the actor animation when attached. */
     public RestaurantScene() {
         actors.put("chef", chef);
         actors.put("waiter", waiter);
@@ -157,8 +158,10 @@ public final class RestaurantScene {
         });
     }
 
+    /** @return the room's root pane */
     public Pane getRoot() { return root; }
 
+    /** Stops the actor animation and clears its frame clock. */
     public void dispose() { actorAnimation.stop(); previousAnimationNanos = 0; }
 
     /** Reconcile visual targets only; no animation callback can change an engine snapshot. */

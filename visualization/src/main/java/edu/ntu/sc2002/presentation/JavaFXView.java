@@ -11,7 +11,10 @@ import edu.ntu.sc2002.ui.scene.RestaurantScene;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-/** UI session orchestration only. The controller validates and executes every game action. */
+/**
+ * JavaFX presentation adapter. It collects Host, Waiter and Chef commands, forwards them to the
+ * controller and renders immutable snapshots; it never applies game rules itself.
+ */
 public final class JavaFXView implements edu.ntu.sc2002.ui.GameView {
     private final Stage stage;
     private final TurnController controller;
@@ -26,6 +29,12 @@ public final class JavaFXView implements edu.ntu.sc2002.ui.GameView {
     private RestaurantUiState state;
     private boolean happyHourActivated;
 
+    /**
+     * Builds the game scene and starts the first turn/arrival.
+     *
+     * @param stage primary JavaFX stage
+     * @param controller engine controller for the selected difficulty
+     */
     public JavaFXView(Stage stage, TurnController controller) {
         this.stage = Objects.requireNonNull(stage);
         this.controller = Objects.requireNonNull(controller);
@@ -51,6 +60,7 @@ public final class JavaFXView implements edu.ntu.sc2002.ui.GameView {
         refresh(new Feedback("Turn " + resolution.turn() + " complete.", false));
     }
     public void displayEndGameResult(GameResult result) { refresh(new Feedback(result.toString(), false)); }
+    /** Releases screen animations and the room's animation timer. */
     public void dispose() { screen.dispose(); room.dispose(); }
 
     private void handle(GameSnapshot renderedSnapshot, Command command) {

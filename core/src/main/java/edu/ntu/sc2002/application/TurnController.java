@@ -10,7 +10,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-/** Runs the six-step game loop. UI never mutates domain state. */
+/**
+ * Application-level turn orchestrator. It owns the current phase, the restaurant aggregate and
+ * the scoreboard, validates manager commands and applies the six turn steps in order. The UI only
+ * reads immutable snapshots/resolutions and never mutates domain state directly.
+ *
+ * <p>Commands are accepted incrementally: Host, then Waiter, then Chef, with the final Chef
+ * submission resolving eating, payment, waiting loss and the next turn.
+ */
 public class TurnController {
     private final GameConfig config;
     private final Restaurant restaurant;
@@ -26,6 +33,13 @@ public class TurnController {
     private PaymentRecord paymentRecord;
     private List<String> departures = List.of();
 
+    /**
+     * Creates a controller and the restaurant aggregate for the supplied configuration.
+     *
+     * @param config validated game configuration
+     * @throws NullPointerException if {@code config} is null
+     * @throws IllegalArgumentException if the restaurant rejects the configured table count
+     */
     public TurnController(GameConfig config) {
         this.config = Objects.requireNonNull(config);
         restaurant = new Restaurant(config.numTables());
@@ -35,7 +49,14 @@ public class TurnController {
     /** During play this is a provisional threshold evaluation, never a termination signal. */
     public GameResult result() { return scoreBoard.evaluateResult(); }
 
-    /** Starts the turn so the UI can show the previous state before arrival. */
+    /**
+     * Starts a new turn, resets per-turn command state and applies any active Happy Hour recovery.
+     * The start-of-turn snapshot is produced after this call so the UI can show the previous state
+     * before the scheduled arrival is registered.
+     *
+     * @return an empty successful resolution for the new turn
+     * @throws IllegalStateException if a turn is already active or the game is not ready to start one
+     */
     public TurnResolution beginTurn() {
         if (turnStarted || phase != TurnPhase.START_OF_TURN) throw new IllegalStateException("Cannot begin another turn");
         // A used Waiter task with no active turn identifies the previously completed turn.
@@ -48,7 +69,13 @@ public class TurnController {
         return response(null);
     }
 
-    /** Step 1: registers the scheduled arrival after the start display. */
+    /**
+     * Step 1: creates and registers the customer scheduled for the current turn, if any, then
+     * moves the controller into {@link TurnPhase#MANAGER_CHOICES}.
+     *
+     * @return a successful resolution containing the arrival event
+     * @throws IllegalStateException if the turn has not been started or is in the wrong phase
+     */
     public TurnResolution processArrival() {
         if (!turnStarted || phase != TurnPhase.START_OF_TURN) throw new IllegalStateException("Begin the turn before processing arrivals");
         if (config.arrivalSchedule().contains(currentTurn)) {
@@ -64,9 +91,12 @@ public class TurnController {
     }
 
     /**
-     * Stage 3: the manager assigns the Host one task per turn, in addition to the
-     * Waiter's task. The Host may seat any queued customer at the first free table,
-     * or wait.
+     * Stage 3: applies the Host's single task for the turn. The Host may seat one explicitly
+     * selected queued customer at the first free table, or wait. Rejected commands do not consume
+     * the Host task.
+     *
+     * @param decision Host command to validate and apply
+     * @return a successful resolution, or a failed resolution explaining the rejected command
      */
     public TurnResolution submitHostDecision(HostChoiceDTO decision) {
         String error = hostError(decision);
@@ -87,7 +117,14 @@ public class TurnController {
         return response(null);
     }
 
-    /** The Waiter acts first so newly placed orders are available to the Chef immediately. */
+    /**
+     * Applies the Waiter's single task for the turn. Seating, ordering and serving are validated
+     * against the current snapshot; an invalid command returns a failed resolution without consuming
+     * the task. The Waiter acts before the Chef so newly placed orders can be advanced immediately.
+     *
+     * @param decision Waiter command to validate and apply
+     * @return a successful resolution, or a failed resolution explaining the rejected command
+     */
     public TurnResolution submitWaiterDecision(WaiterChoiceDTO decision) {
         String error = waiterError(decision);
         if (error != null) return response(error);
@@ -120,6 +157,14 @@ public class TurnController {
         return response(null);
     }
 
+    /**
+     * Applies the Chef's task and resolves the remainder of the turn. Successful submission advances
+     * preparation or records a wait, then finishes eating, performs at most one automatic payment,
+     * applies waiting loss/abandonment, advances the Happy Hour clock and moves to the next phase.
+     *
+     * @param decision Chef command to validate and apply
+     * @return a successful resolution, or a failed resolution explaining the rejected command
+     */
     public TurnResolution submitChefDecision(ChefChoiceDTO decision) {
         String error = chefError(decision);
         if (error != null) return response(error);
@@ -162,7 +207,12 @@ public class TurnController {
         return response(null);
     }
 
-    /** Stage 3: switches on Happy Hour once per game at the start of a turn, before the Host acts. */
+    /**
+     * Stage 3: activates the once-per-game Happy Hour at the start of a turn, before the Host acts.
+     * On success, waiting/seated customers immediately recover the policy's satisfaction amount.
+     *
+     * @return a successful activation resolution, or a failed resolution if activation is not allowed
+     */
     public TurnResolution activateHappyHour() {
         String error = happyHourError();
         if (error != null) return response(error);
@@ -245,6 +295,12 @@ public class TurnController {
                 ? "Choose a customer with an order that is not ready." : null;
     }
 
+    /**
+     * Builds the immutable read model used by both frontends. Only active customers are included;
+     * paid and abandoned customers remain represented through aggregate scoreboard totals.
+     *
+     * @return a snapshot of the current turn, phase, active customers and available commands
+     */
     public GameSnapshot snapshot() {
         var customers = activeCustomers();
         var waiting = restaurant.getWaitingQueue().getQueuedCustomers().stream().map(Customer::getId).toList();
@@ -298,6 +354,12 @@ public class TurnController {
                 waiting, tables, customerViews, orders, waiterActions, chefActions, hostActions,
                 restaurant.getHappyHourPolicy().getStatus(), restaurant.getHappyHourPolicy().getRemainingTurns());
     }
+    /**
+     * Returns the resolution for the most recently completed turn.
+     *
+     * @return the completed turn's events, payment and result
+     * @throws IllegalStateException if the current turn has not been resolved yet
+     */
     public TurnResolution lastResolution() {
         if (turnStarted || !waiterTaskUsed) throw new IllegalStateException("Turn not resolved");
         return response(null);
@@ -306,5 +368,12 @@ public class TurnController {
         return new TurnResolution(currentTurn, events, newArrival, departures, paymentRecord,
                 error == null, error, result());
     }
+
+    /**
+     * Formats integer cents as a two-decimal dollar amount using the root locale.
+     *
+     * @param cents amount in cents
+     * @return formatted currency string, for example {@code $12.50}
+     */
     public static String money(int cents) { return String.format(java.util.Locale.ROOT, "$%.2f", cents / 100.0); }
 }

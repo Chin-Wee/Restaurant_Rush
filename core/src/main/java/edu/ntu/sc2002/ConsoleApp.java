@@ -7,9 +7,16 @@ import edu.ntu.sc2002.ui.console.ConsoleUI;
 import java.util.List;
 import java.util.Locale;
 
+/** Command-line entry point that parses the seed/difficulty and runs the console game loop. */
 public final class ConsoleApp {
     private ConsoleApp() {}
 
+    /**
+     * Launches the Stage 3 console game.
+     *
+     * @param args optional {@code [seed] [easy|medium|hard]}; the seed defaults to 2026 and the
+     *             difficulty defaults to easy
+     */
     public static void main(String[] args) {
         if (args.length > 2) {
             System.err.println("Usage: java -cp core/target/classes edu.ntu.sc2002.ConsoleApp [integer seed] [easy|medium|hard]");

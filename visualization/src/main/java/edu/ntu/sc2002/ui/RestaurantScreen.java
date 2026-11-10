@@ -69,6 +69,13 @@ public final class RestaurantScreen {
     private ComboBox<ChefChoiceDTO> chefChoices;
     private ComboBox<HostChoiceDTO> hostChoices;
 
+    /**
+     * Builds the HUD over an existing room scene.
+     *
+     * @param scene rendered room
+     * @param initialState initial UI state to display
+     * @param commandSink callback that forwards UI commands to the controller adapter
+     */
     public RestaurantScreen(RestaurantScene scene, RestaurantUiState initialState,
             BiConsumer<GameSnapshot, RestaurantUiState.Command> commandSink) {
         this.scene = Objects.requireNonNull(scene);
@@ -116,6 +123,7 @@ public final class RestaurantScreen {
         setUiState(initialState);
     }
 
+    /** @return the root pane containing the room and HUD overlay */
     public Pane getRoot() {
         return root;
     }
@@ -135,6 +143,7 @@ public final class RestaurantScreen {
         }
     }
 
+    /** Stops the turn-summary animation, if one is running. */
     public void dispose() { if (turnCelebration != null) turnCelebration.stop(); }
 
     private void showTurnSummary(ResolvedTurn turn) {

@@ -26,6 +26,7 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
 
+/** Animated start menu for choosing difficulty, starting the game and managing menu audio. */
 public final class StartMenuScreen {
     private static final Logger LOG = Logger.getLogger(StartMenuScreen.class.getName());
     private static final double IMAGE_WIDTH = 576;
@@ -75,6 +76,11 @@ public final class StartMenuScreen {
     private boolean muffledStarted;
     private double buttonFontSize = 64;
 
+    /**
+     * Builds the animated menu.
+     *
+     * @param onStart callback receiving the selected difficulty when the player starts the game
+     */
     public StartMenuScreen(java.util.function.Consumer<String> onStart) {
         this.onStart = onStart;
         wind = createPlayer("/menu-wind.wav");
@@ -145,10 +151,12 @@ public final class StartMenuScreen {
         };
     }
 
+    /** @return the menu's root pane */
     public Pane getRoot() {
         return root;
     }
 
+    /** Starts the cinematic animation and menu audio. */
     public void start() {
         launchNanos = System.nanoTime();
         previousNanos = launchNanos;
@@ -160,6 +168,7 @@ public final class StartMenuScreen {
         animation.start();
     }
 
+    /** Stops the menu animation and releases its media players. */
     public void dispose() {
         animation.stop();
         for (MediaPlayer player : new MediaPlayer[]{wind, menuTrack, muffledTrack}) {

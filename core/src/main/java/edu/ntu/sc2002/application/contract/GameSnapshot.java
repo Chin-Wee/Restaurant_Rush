@@ -27,9 +27,14 @@ public record GameSnapshot(int turn, TurnPhase phase, int revenueCents, Double a
         hostActions = List.copyOf(hostActions);
     }
 
+    /** Display row for one active customer; location fields are null when not applicable. */
     public record CustomerView(String id, int arrivalOrdinal, CustomerType type, CustomerState state, int satisfaction,
             Integer tableId, Integer queuePosition) {}
+
+    /** Display row for one table; {@code occupantId} is null when the table is free. */
     public record TableView(int id, String occupantId) {}
+
+    /** Display row for one active order. */
     public record OrderView(String customerId, String item, OrderStatus status,
             int unitsDone, int preparationUnits, int lockedPriceCents) {}
     /** Seating names the table the engine will allocate; callers do not choose a different table. */

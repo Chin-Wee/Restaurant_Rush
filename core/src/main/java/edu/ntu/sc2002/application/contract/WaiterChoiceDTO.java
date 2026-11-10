@@ -2,7 +2,13 @@ package edu.ntu.sc2002.application.contract;
 
 import java.util.Objects;
 
-/** Commands address the customer who owns an order; WAIT has no target. */
+/**
+ * The Waiter command for one turn. Seating/order/serve commands address a customer; WAIT has no
+ * target. The compact constructor validates that only WAIT may omit the target.
+ *
+ * @param taskType Waiter action
+ * @param targetCustomerId selected customer ID, or null for WAIT
+ */
 public record WaiterChoiceDTO(WaiterTaskType taskType, String targetCustomerId) {
     public WaiterChoiceDTO {
         Objects.requireNonNull(taskType);

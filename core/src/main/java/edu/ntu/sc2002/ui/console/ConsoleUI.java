@@ -14,11 +14,22 @@ public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
     private final TurnController controller;
     private int displayedEvents;
 
+    /**
+     * Creates a console view over the supplied input stream and controller.
+     *
+     * @param input source of typed commands
+     * @param controller engine controller to drive
+     */
     public ConsoleUI(Scanner input, TurnController controller) {
         this.input = input;
         this.controller = controller;
     }
 
+    /**
+     * Runs the command-line loop until the controller reaches {@link TurnPhase#GAME_OVER} or input
+     * ends. Each iteration begins a turn, displays the snapshot, collects commands and prints the
+     * resulting summary.
+     */
     public void run() {
         try {
             while (controller.phase() != TurnPhase.GAME_OVER) {
