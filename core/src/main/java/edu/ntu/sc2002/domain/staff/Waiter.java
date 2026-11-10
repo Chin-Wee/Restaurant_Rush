@@ -1,5 +1,6 @@
 package edu.ntu.sc2002.domain.staff;
 
+import edu.ntu.sc2002.domain.HappyHourPolicy;
 import edu.ntu.sc2002.domain.Order;
 import edu.ntu.sc2002.domain.Table;
 import edu.ntu.sc2002.domain.WaitingQueue;
@@ -19,9 +20,15 @@ public final class Waiter extends Staff {
         queue.dequeueCustomer(customer);
         return true;
     }
-    public Order takeOrder(Customer customer, Menu menu) {
+    /** The customer's own discount applies first, then the active Happy Hour discount; the price is locked. */
+    public Order takeOrder(Customer customer, Menu menu, HappyHourPolicy happyHourPolicy) {
+        Objects.requireNonNull(customer);
+        Objects.requireNonNull(menu);
+        Objects.requireNonNull(happyHourPolicy);
         var item = customer.chooseItem(menu);
-        return customer.placeOrder(item, customer.calculateBill(item.getPriceCents()));
+        int price = customer.calculateBill(item.getPriceCents());
+        if (happyHourPolicy.isActive()) price = happyHourPolicy.applyHappyHourDiscount(price);
+        return customer.placeOrder(item, price);
     }
     public void serve(Customer customer, int turn) { customer.serveOrder(turn); }
 }

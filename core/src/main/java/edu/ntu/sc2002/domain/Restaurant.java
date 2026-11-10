@@ -15,21 +15,24 @@ public final class Restaurant {
     private final WaitingQueue waitingQueue = new WaitingQueue();
     private final Menu menu = new Menu();
     private final List<Staff> staffList = new ArrayList<>();
+    private final HappyHourPolicy happyHourPolicy = new HappyHourPolicy();
 
     public Restaurant(int numTables) {
-        if (numTables != 2) throw new IllegalArgumentException("Stage 1 requires two tables");
+        if (numTables != 2) throw new IllegalArgumentException("The restaurant requires two tables");
         tables = List.of(new Table(1), new Table(2));
         addStaff(new Waiter("Waiter"));
         addStaff(new Chef("Chef"));
         addStaff(new Cashier("Cashier"));
+        addStaff(new Host("Host"));
     }
     public List<Table> getTables() { return tables; }
     public WaitingQueue getWaitingQueue() { return waitingQueue; }
     public Menu getMenu() { return menu; }
+    public HappyHourPolicy getHappyHourPolicy() { return happyHourPolicy; }
     public void addStaff(Staff staff) {
         Objects.requireNonNull(staff);
-        if (!(staff instanceof Waiter || staff instanceof Chef || staff instanceof Cashier)) {
-            throw new IllegalArgumentException("Stage 1 supports only Waiter, Chef and Cashier");
+        if (!(staff instanceof Waiter || staff instanceof Chef || staff instanceof Cashier || staff instanceof Host)) {
+            throw new IllegalArgumentException("The restaurant supports only Waiter, Chef, Cashier and Host");
         }
         if (staffList.stream().anyMatch(s -> s.getClass() == staff.getClass())) {
             throw new IllegalArgumentException("That staff role is already registered");

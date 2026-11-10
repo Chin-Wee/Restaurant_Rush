@@ -19,6 +19,7 @@ public class TurnController {
     private TurnPhase phase = TurnPhase.START_OF_TURN;
     private int currentTurn = 1;
     private boolean waiterTaskUsed;
+    private boolean hostTaskUsed;
     private boolean turnStarted;
     private String newArrival;
     private final List<String> events = new ArrayList<>();
@@ -41,7 +42,9 @@ public class TurnController {
         if (waiterTaskUsed) currentTurn++;
         events.clear(); departures = List.of(); paymentRecord = null; newArrival = null;
         waiterTaskUsed = false;
+        hostTaskUsed = false;
         turnStarted = true;
+        if (restaurant.getHappyHourPolicy().isActive()) recoverWaitingCustomers();
         return response(null);
     }
 
@@ -57,6 +60,30 @@ public class TurnController {
             events.add("Arrival: " + customer.getId() + " (" + customer.getType() + ") joins the queue.");
         }
         phase = TurnPhase.MANAGER_CHOICES;
+        return response(null);
+    }
+
+    /**
+     * Stage 3: the manager assigns the Host one task per turn, in addition to the
+     * Waiter's task. The Host may seat any queued customer at the first free table,
+     * or wait.
+     */
+    public TurnResolution submitHostDecision(HostChoiceDTO decision) {
+        String error = hostError(decision);
+        if (error != null) return response(error);
+        switch (decision.taskType()) {
+            case WAIT -> events.add("Host waits.");
+            case SEAT -> {
+                Customer target = customerForId(decision.targetCustomerId());
+                Table table = restaurant.getTables().stream().filter(t -> !t.isOccupied()).findFirst()
+                        .orElseThrow(() -> new IllegalStateException("No table is free"));
+                if (!restaurant.getStaff(Host.class).seatCustomer(target, restaurant.getWaitingQueue(), table)) {
+                    return response("Unable to seat " + target.getId() + ".");
+                }
+                events.add("Host seats " + target.getId() + " at Table " + table.tableId() + ".");
+            }
+        }
+        hostTaskUsed = true;
         return response(null);
     }
 
@@ -77,7 +104,8 @@ public class TurnController {
                 events.add("Waiter seats " + target.getId() + " at Table " + table.tableId() + ".");
             }
             case TAKE_ORDER -> {
-                Order order = restaurant.getStaff(Waiter.class).takeOrder(target, restaurant.getMenu());
+                Order order = restaurant.getStaff(Waiter.class).takeOrder(
+                        target, restaurant.getMenu(), restaurant.getHappyHourPolicy());
                 int menuPrice = order.getMenuItem().getPriceCents();
                 events.add(target.getId() + " orders " + order.getMenuItem().getName() + " for " + money(order.lockedPriceCents())
                         + (order.lockedPriceCents() == menuPrice ? "" : " (menu " + money(menuPrice) + ")") + ".");
@@ -128,9 +156,44 @@ public class TurnController {
             }
         }
         departures = List.copyOf(left);
+        restaurant.getHappyHourPolicy().decrementTurn();
         turnStarted = false;
         phase = currentTurn == config.maxTurns() ? TurnPhase.GAME_OVER : TurnPhase.START_OF_TURN;
         return response(null);
+    }
+
+    /** Stage 3: switches on Happy Hour once per game at the start of a turn, before the Host acts. */
+    public TurnResolution activateHappyHour() {
+        String error = happyHourError();
+        if (error != null) return response(error);
+        if (restaurant.getHappyHourPolicy().activate(currentTurn)) {
+            events.add("Happy Hour activated: orders taken this turn and the next get 20% off.");
+            recoverWaitingCustomers();
+        }
+        return response(null);
+    }
+    private String happyHourError() {
+        if (phase != TurnPhase.MANAGER_CHOICES) return "Happy Hour can only be activated at the start of a turn.";
+        if (hostTaskUsed) return "Happy Hour must be activated before the Host acts.";
+        if (waiterTaskUsed) return "Happy Hour must be activated before the Waiter acts.";
+        return switch (restaurant.getHappyHourPolicy().getStatus()) {
+            case ACTIVE -> "Happy Hour is already active.";
+            case EXHAUSTED -> "Happy Hour has already been used this game.";
+            case AVAILABLE -> null;
+        };
+    }
+    /** Customers still waiting for a table or food recover satisfaction at the start of each active turn. */
+    private void recoverWaitingCustomers() {
+        HappyHourPolicy policy = restaurant.getHappyHourPolicy();
+        for (Customer customer : activeCustomers()) {
+            if (customer.getState() != CustomerState.WAITING && customer.getState() != CustomerState.SEATED) continue;
+            int before = customer.getSatisfaction();
+            customer.addSatisfaction(policy.recoveryAmount());
+            if (customer.getSatisfaction() > before) {
+                events.add(customer.getId() + " recovers " + (customer.getSatisfaction() - before)
+                        + " satisfaction (Happy Hour).");
+            }
+        }
     }
 
     private Customer customerForId(String id) {
@@ -141,8 +204,21 @@ public class TurnController {
                 restaurant.getTables().stream().filter(Table::isOccupied).map(Table::getSeatedCustomer))
                 .sorted(Comparator.comparingInt(Customer::arrivalOrdinal)).toList();
     }
+    private String hostError(HostChoiceDTO decision) {
+        if (phase != TurnPhase.MANAGER_CHOICES) return "Host choices are unavailable in phase " + phase + ".";
+        if (hostTaskUsed) return "The Host has already acted this turn.";
+        if (decision == null) return "Choose a Host task.";
+        Customer target = customerForId(decision.targetCustomerId());
+        return switch (decision.taskType()) {
+            case WAIT -> null;
+            case SEAT -> target == null || !restaurant.getWaitingQueue().getQueuedCustomers().contains(target)
+                    ? "Choose a customer in the queue."
+                    : restaurant.getTables().stream().noneMatch(t -> !t.isOccupied()) ? "No table is free." : null;
+        };
+    }
     private String waiterError(WaiterChoiceDTO decision) {
         if (phase != TurnPhase.MANAGER_CHOICES) return "Waiter choices are unavailable in phase " + phase + ".";
+        if (!hostTaskUsed) return "Choose the Host task before the Waiter task.";
         if (waiterTaskUsed) return "The Waiter has already acted this turn.";
         if (decision == null) return "Choose a Waiter task.";
         Customer target = customerForId(decision.targetCustomerId());
@@ -159,6 +235,7 @@ public class TurnController {
     }
     private String chefError(ChefChoiceDTO decision) {
         if (phase != TurnPhase.MANAGER_CHOICES) return "Chef choices are unavailable in phase " + phase + ".";
+        if (!hostTaskUsed) return "Choose the Host task before the Chef task.";
         if (!waiterTaskUsed) return "Choose the Waiter task before the Chef task.";
         if (decision == null) return "Choose a Chef task.";
         if (decision.taskType() == ChefTaskType.WAIT) return null;
@@ -184,8 +261,19 @@ public class TurnController {
                         c.order().unitsDone(), c.order().getMenuItem().getPrepUnitsNeeded(), c.order().lockedPriceCents())).toList();
         List<GameSnapshot.WaiterAction> waiterActions = new ArrayList<>();
         List<ChefChoiceDTO> chefActions = new ArrayList<>();
+        List<GameSnapshot.HostAction> hostActions = new ArrayList<>();
         if (turnStarted && phase == TurnPhase.MANAGER_CHOICES) {
             Integer nextTable = tables.stream().filter(t -> t.occupantId() == null).map(GameSnapshot.TableView::id).findFirst().orElse(null);
+            if (!hostTaskUsed) {
+                for (Customer customer : customers) {
+                    var decision = new HostChoiceDTO(HostTaskType.SEAT, customer.getId());
+                    if (hostError(decision) == null) {
+                        hostActions.add(new GameSnapshot.HostAction(decision, nextTable, customer.getId()));
+                    }
+                }
+                var hostWait = new HostChoiceDTO(HostTaskType.WAIT, null);
+                if (hostError(hostWait) == null) hostActions.add(new GameSnapshot.HostAction(hostWait, null, null));
+            }
             for (WaiterTaskType task : WaiterTaskType.values()) {
                 if (task == WaiterTaskType.WAIT) continue;
                 for (Customer customer : customers) {
@@ -207,7 +295,8 @@ public class TurnController {
         return new GameSnapshot(currentTurn, phase, scoreBoard.revenueCents(), Double.isNaN(average) ? null : average,
                 scoreBoard.servedCount(), scoreBoard.paidCount(), scoreBoard.unhappyDepartures(),
                 turnStarted || !waiterTaskUsed ? currentTurn - 1 : currentTurn,
-                waiting, tables, customerViews, orders, waiterActions, chefActions);
+                waiting, tables, customerViews, orders, waiterActions, chefActions, hostActions,
+                restaurant.getHappyHourPolicy().getStatus(), restaurant.getHappyHourPolicy().getRemainingTurns());
     }
     public TurnResolution lastResolution() {
         if (turnStarted || !waiterTaskUsed) throw new IllegalStateException("Turn not resolved");

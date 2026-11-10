@@ -10,6 +10,7 @@ import edu.ntu.sc2002.ui.scene.RestaurantScene;
 import edu.ntu.sc2002.application.contract.*;
 import edu.ntu.sc2002.application.contract.GameSnapshot.*;
 import edu.ntu.sc2002.domain.GameResult;
+import edu.ntu.sc2002.domain.HappyHourStatus;
 import javafx.animation.Animation;
 import javafx.animation.FadeTransition;
 import javafx.animation.ParallelTransition;
@@ -33,7 +34,6 @@ import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
@@ -42,6 +42,8 @@ import javafx.util.StringConverter;
 
 import edu.ntu.sc2002.presentation.RestaurantUiState.WaiterCommand;
 import edu.ntu.sc2002.presentation.RestaurantUiState.ChefCommand;
+import edu.ntu.sc2002.presentation.RestaurantUiState.HostCommand;
+import edu.ntu.sc2002.presentation.RestaurantUiState.HappyHourCommand;
 import edu.ntu.sc2002.presentation.RestaurantUiState.ResolveTurn;
 import edu.ntu.sc2002.presentation.RestaurantUiState.ResolvedTurn;
 
@@ -56,7 +58,7 @@ public final class RestaurantScreen {
     private final Pane root = new StackPane();
     private final AnchorPane overlay = new AnchorPane();
     private final VBox gameplayPanel = new VBox(3);
-    private final HBox topHud = new HBox(18);
+    private final FlowPane topHud = new FlowPane(18, 4);
     private final VBox turnBanner = new VBox(8);
     private Animation turnCelebration;
     private int lastCelebratedTurn;
@@ -65,6 +67,7 @@ public final class RestaurantScreen {
     private RestaurantUiState uiState;
     private ComboBox<WaiterAction> waiterChoices;
     private ComboBox<ChefChoiceDTO> chefChoices;
+    private ComboBox<HostChoiceDTO> hostChoices;
 
     public RestaurantScreen(RestaurantScene scene, RestaurantUiState initialState,
             BiConsumer<GameSnapshot, RestaurantUiState.Command> commandSink) {
@@ -89,9 +92,11 @@ public final class RestaurantScreen {
 
         topHud.setPadding(new Insets(9, 12, 9, 12));
         topHud.setAlignment(Pos.CENTER_LEFT);
+        topHud.setMaxWidth(Double.MAX_VALUE);
         topHud.setStyle("-fx-background-color: rgba(37, 43, 61, 0.94);"
                 + "-fx-border-color: #b98753; -fx-border-width: 1;");
         AnchorPane.setLeftAnchor(topHud, 14.0);
+        AnchorPane.setRightAnchor(topHud, 14.0);
         AnchorPane.setTopAnchor(topHud, 14.0);
         turnBanner.setId("turn-summary");
         turnBanner.setVisible(false);
@@ -117,12 +122,13 @@ public final class RestaurantScreen {
 
     /** Apply the controller's next immutable snapshot after a command is handled. */
     public void setUiState(RestaurantUiState nextState) {
+        HostChoiceDTO previousHostChoice = hostChoices == null ? null : hostChoices.getValue();
         WaiterAction previousWaiterChoice = waiterChoices == null ? null : waiterChoices.getValue();
         ChefChoiceDTO previousChefChoice = chefChoices == null ? null : chefChoices.getValue();
         if (uiState == null) scene.showSnapshot(nextState.snapshot());
         uiState = Objects.requireNonNull(nextState);
         renderTopHud();
-        renderGameplayPanel(previousWaiterChoice, previousChefChoice);
+        renderGameplayPanel(previousHostChoice, previousWaiterChoice, previousChefChoice);
         if (nextState.lastTurn() != null && nextState.lastTurn().resolution().turn() > lastCelebratedTurn) {
             scene.playTurn(nextState.lastTurn(), nextState.snapshot());
             showTurnSummary(nextState.lastTurn());
@@ -168,7 +174,7 @@ public final class RestaurantScreen {
     private void renderTopHud() {
         topHud.getChildren().setAll(
                 identifiedHud("RESTAURANT RUSH", "game-title"),
-                identifiedHud("STAGE 2", "stage-label"),
+                identifiedHud("STAGE 3", "stage-label"),
                 hudText("TURN " + uiState.snapshot().turn()),
                 hudText("PHASE " + uiState.phase()),
                 hudText("REVENUE " + formatMoney(uiState.snapshot().revenueCents())),
@@ -185,7 +191,8 @@ public final class RestaurantScreen {
         return label;
     }
 
-    private void renderGameplayPanel(WaiterAction previousWaiterChoice, ChefChoiceDTO previousChefChoice) {
+    private void renderGameplayPanel(HostChoiceDTO previousHostChoice, WaiterAction previousWaiterChoice,
+            ChefChoiceDTO previousChefChoice) {
         gameplayPanel.getChildren().clear();
         if (uiState.complete()) {
             gameplayPanel.getChildren().add(resultView(uiState.snapshot(), uiState.lastTurn().resolution().result()));
@@ -206,7 +213,7 @@ public final class RestaurantScreen {
         GridPane cards = new GridPane();
         cards.setHgap(7);
         cards.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-        double[] widths = {34, 22, 22, 22};
+        double[] widths = {24, 16, 16, 16, 16, 12};
         for (double width : widths) {
             ColumnConstraints column = new ColumnConstraints();
             column.setPercentWidth(width);
@@ -216,8 +223,10 @@ public final class RestaurantScreen {
         }
         cards.add(customerCard(), 0, 0);
         cards.add(tableAndOrderCard(), 1, 0);
-        cards.add(waiterCard(previousWaiterChoice), 2, 0);
-        cards.add(chefCard(previousChefChoice), 3, 0);
+        cards.add(hostCard(previousHostChoice), 2, 0);
+        cards.add(waiterCard(previousWaiterChoice), 3, 0);
+        cards.add(chefCard(previousChefChoice), 4, 0);
+        cards.add(managerCard(), 5, 0);
         VBox.setVgrow(cards, Priority.ALWAYS);
         gameplayPanel.getChildren().add(cards);
     }
@@ -230,7 +239,7 @@ public final class RestaurantScreen {
             Label identity = smallText(customer.id() + " · " + customer.type() + " · " + location + " · " + customer.satisfaction() + "/100");
             OrderView order = uiState.snapshot().orders().stream().filter(o -> o.customerId().equals(customer.id())).findFirst().orElse(null);
             rows.getChildren().addAll(identity, smallText((order == null ? "No food chosen · No order" : order.item() + " · " + order.status())
-                    + " · Cashier: " + customer.state()));
+                    + " · State: " + customer.state()));
         }
         if (uiState.snapshot().customers().isEmpty()) rows.getChildren().add(smallText("No customers"));
         return card("CUSTOMERS / QUEUE", scrollable(rows));
@@ -253,13 +262,15 @@ public final class RestaurantScreen {
 
     private Node waiterCard(WaiterAction previousChoice) {
         VBox content = new VBox(3);
+        boolean hostPending = !uiState.snapshot().hostActions().isEmpty();
         waiterChoices = choiceBox("Choose available Waiter task", uiState.snapshot().waiterActions(),
                 this::waiterLabel);
         waiterChoices.setId("waiter-actions");
+        waiterChoices.setDisable(hostPending || waiterChoices.getItems().isEmpty());
         selectIfAvailable(waiterChoices, previousChoice);
         Button submit = actionButton("Submit", 92, "Submit Waiter task");
         submit.setId("waiter-submit");
-        submit.disableProperty().bind(waiterChoices.valueProperty().isNull());
+        submit.disableProperty().bind(waiterChoices.disabledProperty().or(waiterChoices.valueProperty().isNull()));
         GameSnapshot renderedSnapshot = uiState.snapshot();
         ComboBox<WaiterAction> renderedChoices = waiterChoices;
         submit.setOnAction(event -> {
@@ -269,7 +280,32 @@ public final class RestaurantScreen {
             }
         });
         content.getChildren().addAll(waiterChoices, submit);
+        if (hostPending) content.getChildren().add(smallText("Choose the Host task first."));
         return card("WAITER", scrollable(content));
+    }
+
+    /** Stage 3 Host task: the manager seats a selected queued customer or waits. */
+    private Node hostCard(HostChoiceDTO previousChoice) {
+        VBox content = new VBox(3);
+        List<HostChoiceDTO> actions = uiState.snapshot().hostActions().stream()
+                .map(GameSnapshot.HostAction::decision).toList();
+        hostChoices = choiceBox("Choose available Host task", actions, this::hostLabel);
+        hostChoices.setId("host-actions");
+        selectIfAvailable(hostChoices, previousChoice);
+        Button submit = actionButton("Submit", 82, "Submit Host task");
+        submit.setId("host-submit");
+        submit.disableProperty().bind(hostChoices.disabledProperty().or(hostChoices.valueProperty().isNull()));
+        GameSnapshot renderedSnapshot = uiState.snapshot();
+        ComboBox<HostChoiceDTO> renderedChoices = hostChoices;
+        submit.setOnAction(event -> {
+            HostChoiceDTO choice = renderedChoices.getValue();
+            if (choice != null) {
+                commandSink.accept(renderedSnapshot, new HostCommand(choice));
+            }
+        });
+        content.getChildren().addAll(hostChoices, submit);
+        if (actions.isEmpty()) content.getChildren().add(smallText("Host already acted this turn."));
+        return card("HOST", scrollable(content));
     }
 
     private Node chefCard(ChefChoiceDTO previousChoice) {
@@ -279,7 +315,7 @@ public final class RestaurantScreen {
         selectIfAvailable(chefChoices, previousChoice);
         Button submit = actionButton("Submit", 82, "Submit Chef task");
         submit.setId("chef-submit");
-        submit.disableProperty().bind(chefChoices.valueProperty().isNull());
+        submit.disableProperty().bind(chefChoices.disabledProperty().or(chefChoices.valueProperty().isNull()));
         GameSnapshot renderedSnapshot = uiState.snapshot();
         ComboBox<ChefChoiceDTO> renderedChoices = chefChoices;
         submit.setOnAction(event -> {
@@ -297,9 +333,38 @@ public final class RestaurantScreen {
         buttons.getChildren().add(resolve);
         content.getChildren().addAll(chefChoices, buttons);
         if (uiState.snapshot().chefActions().isEmpty()) {
-            content.getChildren().add(smallText("Chef choices appear after Waiter submits."));
+            content.getChildren().add(smallText("Chef choices appear after the Host and Waiter act."));
         }
         return card("CHEF / TURN", scrollable(content));
+    }
+
+    private String hostLabel(HostChoiceDTO decision) {
+        if (decision.taskType() == HostTaskType.WAIT) return "Wait";
+        var action = uiState.snapshot().hostActions().stream()
+                .filter(a -> a.decision().equals(decision)).findFirst().orElse(null);
+        return action == null ? "Seat " + decision.targetCustomerId()
+                : "Seat " + action.customerId() + " at Table " + action.tableId();
+    }
+
+    /** Stage 3 manager action: Happy Hour may be switched on once, at the start of a turn. */
+    private Node managerCard() {
+        VBox content = new VBox(4);
+        HappyHourStatus status = uiState.snapshot().happyHourStatus();
+        String statusText = switch (status) {
+            case AVAILABLE -> "Available";
+            case ACTIVE -> "Active · " + uiState.snapshot().happyHourRemainingTurns() + " turn(s) left";
+            case EXHAUSTED -> "Used";
+        };
+        content.getChildren().add(smallText("Happy Hour: " + statusText));
+        Button activate = actionButton("Happy Hour", 104, "Activate Happy Hour");
+        activate.setId("happy-hour");
+        activate.setDisable(status != HappyHourStatus.AVAILABLE
+                || uiState.snapshot().hostActions().isEmpty());
+        GameSnapshot renderedSnapshot = uiState.snapshot();
+        activate.setOnAction(event -> commandSink.accept(renderedSnapshot, new HappyHourCommand()));
+        content.getChildren().add(activate);
+        content.getChildren().add(smallText("Once per game: 20% off orders taken this turn and the next; waiting guests recover 15 satisfaction."));
+        return card("MANAGER", scrollable(content));
     }
 
     private String waiterLabel(WaiterAction action) {

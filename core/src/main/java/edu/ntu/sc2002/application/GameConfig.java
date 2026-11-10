@@ -4,7 +4,7 @@ import edu.ntu.sc2002.domain.customer.CustomerType;
 import java.util.Collections;
 import java.util.List;
 
-/** Base setting; customerTypes.get(i) is the type of the customer arriving on arrivalSchedule.get(i). */
+/** Difficulty setting; customerTypes.get(i) is the type of the customer arriving on arrivalSchedule.get(i). */
 public record GameConfig(int maxTurns, int numTables, List<Integer> arrivalSchedule, long randomSeed,
         List<CustomerType> customerTypes) {
     private static final List<Integer> BASE_ARRIVALS = List.of(1, 4, 7, 10, 13, 16);
@@ -12,9 +12,18 @@ public record GameConfig(int maxTurns, int numTables, List<Integer> arrivalSched
     public GameConfig {
         arrivalSchedule = List.copyOf(arrivalSchedule);
         customerTypes = List.copyOf(customerTypes);
-        if (maxTurns != 18 || numTables != 2 || !arrivalSchedule.equals(BASE_ARRIVALS)
+        if (maxTurns < 1 || numTables != 2 || arrivalSchedule.isEmpty()
                 || customerTypes.size() != arrivalSchedule.size()) {
-            throw new IllegalArgumentException("The base setting requires 18 turns, two tables, and one typed arrival on turns 1, 4, 7, 10, 13, 16");
+            throw new IllegalArgumentException("A game requires one or more arrivals, two tables, and one customer type per arrival");
+        }
+        for (int i = 0; i < arrivalSchedule.size(); i++) {
+            int turn = arrivalSchedule.get(i);
+            if (turn < 1 || turn > maxTurns) {
+                throw new IllegalArgumentException("Arrival turns must be between 1 and maxTurns");
+            }
+            if (i > 0 && turn <= arrivalSchedule.get(i - 1)) {
+                throw new IllegalArgumentException("Arrival turns must be strictly increasing");
+            }
         }
     }
 
