@@ -45,7 +45,7 @@ public final class StartMenuScreen {
     private final Pane root = new Pane();
     private final ImageView[][] cityTiles = new ImageView[6][2];
     private final double[] cityOffsets = new double[6];
-    private final Text credits = new Text("Chin Wee, Lucas and\nHecheng present");
+    private final Text credits = new Text("Group 5 presents");
     private final Text title = new Text("Restaurant Rush");
     private final Button startButton = new Button("Start Game");
     private final Button menuButton = new Button("Menu");
