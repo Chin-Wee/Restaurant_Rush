@@ -119,10 +119,10 @@ and N/A satisfaction after 18 turns.
 | Launch the submitted game and explain the objective | 0:00–2:00 | Chin Wee |
 | Make manager choices under staff constraints | 0:00–2:00 | Chin Wee |
 | Follow a dish from READY to SERVED to payment | 0:00–2:00 | Chin Wee |
-| Demonstrate a Stage 2 VIP or Critic behavior | 2:00–3:30 | Bhavya |
-| Demonstrate a Stage 3 feature | 3:30–5:00 | Hecheng |
-| Show an accelerated victory and defeat | 5:00–7:00 | Chin Wee |
-| Compare stage tags and changes, then explain the diagrams | 5:00–7:00 (tags), 7:00–11:00 (class diagram and SOLID), 11:00–15:00 (sequence diagram) | Chin Wee, Lucas, Sweeda |
+| Show an accelerated victory and defeat | 2:00–4:00 | Chin Wee |
+| Demonstrate a Stage 2 VIP or Critic behavior | 4:00–5:30 | Bhavya |
+| Demonstrate a Stage 3 feature | 5:30–7:00 | Hecheng |
+| Compare stage tags and changes, then explain the diagrams | 2:00–4:00 (tags), 7:00–11:00 (class diagram and SOLID), 11:00–15:00 (sequence diagram) | Chin Wee, Lucas, Sweeda |
 
 ## Design
 
