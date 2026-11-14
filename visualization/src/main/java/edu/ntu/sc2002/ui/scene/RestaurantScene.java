@@ -8,9 +8,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.LinkedHashMap;
 import edu.ntu.sc2002.application.contract.GameSnapshot;
+import edu.ntu.sc2002.application.contract.HostTaskType;
 import edu.ntu.sc2002.application.contract.WaiterTaskType;
 import edu.ntu.sc2002.application.contract.ChefTaskType;
 import edu.ntu.sc2002.domain.OrderStatus;
@@ -56,6 +58,13 @@ public final class RestaurantScene {
     private static final long WALK_FRAME_NANOS = 120_000_000L;
     private static final long IDLE_FRAME_NANOS = 400_000_000L;
     private static final Tile CUSTOMER_SPAWN = new Tile(0, 5);
+    private static final Tile WAITER_STATION = new Tile(12, 7);
+    private static final int HOST_STATION_COLUMN = 5;
+    private static final Tile HOST_STATION = new Tile(HOST_STATION_COLUMN, 4);
+    private static final int MAX_VISIBLE_QUEUE = 3;
+    private static final int QUEUE_FRONT_COLUMN = 4;
+    private static final int QUEUE_SLOT_GAP = 2;
+    private static final Set<String> STAFF = Set.of("chef", "waiter", "cashier", "host");
     private static final Tile STOVE_APPROACH = new Tile(16, 3);
     private static final Tile[] DISH_SPOTS = {
             new Tile(15, 4), new Tile(16, 4), new Tile(17, 4), new Tile(18, 4)
@@ -85,13 +94,18 @@ public final class RestaurantScene {
     private static final boolean[][] MOVEMENT_AREA = createMovementArea();
     private final Actor chef = new Actor(new Tile(17, 4), loadDirectionalFrames("adam", "idle", 6),
             loadDirectionalFrames("adam", "run", 6), null, Direction.UP);
-    private final Actor waiter = new Actor(new Tile(12, 7), loadDirectionalFrames("alex", "idle", 6),
+    private final Actor waiter = new Actor(WAITER_STATION, loadDirectionalFrames("alex", "idle", 6),
             loadDirectionalFrames("alex", "run", 6), null, Direction.LEFT);
     private final Actor cashier = new Actor(new Tile(14, 4), loadSingleDirection("amelia", "idle", "down", 6),
             null, null, Direction.DOWN);
+    /** Stage 3 host who escorts newly seated guests, then returns to the stand. */
+    private final Actor host = new Actor(HOST_STATION, loadDirectionalFrames("bob", "idle", 6),
+            loadDirectionalFrames("bob", "run", 6), null, Direction.DOWN);
     private final Map<String, Actor> actors = new LinkedHashMap<>();
     private Map<String, Placement> customerPlacements = Map.of();
     private Map<String, CustomerType> customerTypes = Map.of();
+    private int visibleQueueCount;
+    private int hiddenQueueCount;
     private final Set<String> exiting = new HashSet<>();
     private final Map<String, Dish> dishes = new LinkedHashMap<>();
     private long previousAnimationNanos;
@@ -107,10 +121,12 @@ public final class RestaurantScene {
         }
     };
 
+    /** Creates the room layers, loads visual assets and starts the actor animation when attached. */
     public RestaurantScene() {
         actors.put("chef", chef);
         actors.put("waiter", waiter);
         actors.put("cashier", cashier);
+        actors.put("host", host);
         root.setMinSize(0, 0);
         root.setStyle("-fx-background-color: #252B3D;");
         floorLayer.setId("floor-layer");
@@ -142,16 +158,41 @@ public final class RestaurantScene {
         });
     }
 
+    /** @return the room's root pane */
     public Pane getRoot() { return root; }
 
+    /** Stops the actor animation and clears its frame clock. */
     public void dispose() { actorAnimation.stop(); previousAnimationNanos = 0; }
 
     /** Reconcile visual targets only; no animation callback can change an engine snapshot. */
     public void showSnapshot(GameSnapshot snapshot) {
+        showSnapshot(snapshot, Map.of());
+    }
+
+    private void showSnapshot(GameSnapshot snapshot, Map<String, Actor> seaters) {
         Map<String, Placement> targets = customerTargets(snapshot);
-        for (var entry : actors.entrySet()) {
+        Set<String> activeIds = new HashSet<>();
+        int visible = 0;
+        int hidden = 0;
+        for (GameSnapshot.CustomerView customer : snapshot.customers()) {
+            activeIds.add(customer.id());
+            if (customer.state() == CustomerState.WAITING && customer.queuePosition() != null) {
+                if (customer.queuePosition() <= MAX_VISIBLE_QUEUE) visible++;
+                else hidden++;
+            }
+        }
+        visibleQueueCount = visible;
+        hiddenQueueCount = hidden;
+        Iterator<Map.Entry<String, Actor>> iterator = actors.entrySet().iterator();
+        while (iterator.hasNext()) {
+            var entry = iterator.next();
             String id = entry.getKey();
-            if (!Set.of("chef", "waiter", "cashier").contains(id) && !targets.containsKey(id) && exiting.add(id)) {
+            if (STAFF.contains(id) || targets.containsKey(id)) continue;
+            if (activeIds.contains(id)) {
+                iterator.remove();
+                continue;
+            }
+            if (exiting.add(id)) {
                 Actor guest = entry.getValue();
                 List<Tile> exitPath = new ArrayList<>(requirePath(guest.tile(), CUSTOMER_SPAWN));
                 exitPath.add(new Tile(-1, CUSTOMER_SPAWN.row));
@@ -164,18 +205,22 @@ public final class RestaurantScene {
             Actor guest = actors.computeIfAbsent(id, key -> customer(placement.person(), CUSTOMER_SPAWN));
             if (placement.seated()) {
                 if (!placement.equals(customerPlacements.get(id))) {
-                    // Stardew Valley-style visual waypoints: meet the guest, then escort to the chair.
+                    // The staff member who seated the guest escorts them, then returns to their stand.
+                    Actor seater = seaters.getOrDefault(id, host);
+                    Tile station = seater == waiter ? WAITER_STATION : HOST_STATION;
+                    Runnable rest = seater == waiter ? waiter::faceLeft : host::faceDown;
                     guest.requestDestination(guest.tile(), false);
-                    waiter.walkTo(guest.tile(), () -> {
+                    seater.walkTo(hostApproach(guest.tile(), targets), () -> {
                         if (placement.equals(customerPlacements.get(id))) {
                             guest.requestDestination(placement.tile(), true);
                             guest.walkDelay = 1.0;
                         }
                     });
-                    waiter.walkTo(new Tile(placement.tile().column - 1, placement.tile().row), null);
+                    seater.walkTo(new Tile(placement.tile().column - 1, placement.tile().row),
+                            () -> seater.walkTo(station, rest));
                 }
             } else {
-                guest.requestDestination(placement.tile(), false);
+                guest.requestQueueDestination(placement.tile());
             }
         }
         customerPlacements = targets;
@@ -195,7 +240,14 @@ public final class RestaurantScene {
 
     /** Called once per completed turn by the screen. No engine callbacks or revision counters. */
     public void playTurn(ResolvedTurn turn, GameSnapshot nextSnapshot) {
-        showSnapshot(nextSnapshot);
+        Map<String, Actor> seaters = new HashMap<>();
+        if (turn.host() != null && turn.host().taskType() == HostTaskType.SEAT) {
+            seaters.put(turn.host().targetCustomerId(), host);
+        }
+        if (turn.waiter().decision().taskType() == WaiterTaskType.SEAT) {
+            seaters.put(turn.waiter().decision().targetCustomerId(), waiter);
+        }
+        showSnapshot(nextSnapshot, seaters);
         Integer waiterTable = tableFor(turn.before(), turn.waiter().customerId());
         if (waiterTable != null && turn.waiter().decision().taskType() != WaiterTaskType.WAIT
                 && turn.waiter().decision().taskType() != WaiterTaskType.SEAT) {
@@ -208,9 +260,11 @@ public final class RestaurantScene {
                 });
                 waiter.walkTo(new Tile(chair.column - 1, chair.row), () -> {
                     if (dishes.get(customerId) == dish) dish.place = DishPlace.TABLE;
+                    waiter.walkTo(WAITER_STATION, waiter::faceLeft);
                 });
             } else {
-                waiter.walkTo(new Tile(chair.column - 1, chair.row), null);
+                waiter.walkTo(new Tile(chair.column - 1, chair.row),
+                        () -> waiter.walkTo(WAITER_STATION, waiter::faceLeft));
             }
         }
         Integer chefTable = tableFor(turn.before(), turn.chefCustomerId());
@@ -231,6 +285,21 @@ public final class RestaurantScene {
         return new Tile(DISH_SPOTS[index].column, KITCHEN_BOTTOM_ROW + 2);
     }
 
+    /** Picks a free neighbouring tile for the Host so sprites never stack on the guest's tile. */
+    private static Tile hostApproach(Tile guest, Map<String, Placement> targets) {
+        Set<Tile> occupied = new HashSet<>();
+        targets.values().forEach(placement -> occupied.add(placement.tile()));
+        int[][] offsets = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+        for (int[] offset : offsets) {
+            Tile candidate = new Tile(guest.column + offset[0], guest.row + offset[1]);
+            if (inside(candidate) && MOVEMENT_AREA[candidate.row][candidate.column]
+                    && !occupied.contains(candidate)) {
+                return candidate;
+            }
+        }
+        return guest;
+    }
+
     /** Visual time only. Departure removes a sprite after it has crossed the room edge. */
     private void advanceActors(double delta) {
         for (Actor actor : actors.values()) actor.advance(delta);
@@ -246,8 +315,15 @@ public final class RestaurantScene {
         String[] people = {"bob", "adam", "amelia"};
         for (GameSnapshot.CustomerView customer : snapshot.customers()) {
             if (customer.state() == CustomerState.PAID || customer.state() == CustomerState.LEFT) continue;
-            Tile target = customer.tableId() != null ? chairFor(customer.tableId())
-                    : new Tile(Math.max(0, Objects.requireNonNull(customer.queuePosition()) - 1), CUSTOMER_SPAWN.row);
+            if (customer.tableId() == null && customer.queuePosition() != null
+                    && customer.queuePosition() > MAX_VISIBLE_QUEUE) continue;
+            Tile target;
+            if (customer.tableId() != null) {
+                target = chairFor(customer.tableId());
+            } else {
+                int queuePosition = Objects.requireNonNull(customer.queuePosition());
+                target = new Tile(QUEUE_FRONT_COLUMN - QUEUE_SLOT_GAP * (queuePosition - 1), CUSTOMER_SPAWN.row);
+            }
             targets.put(customer.id(), new Placement(people[Math.floorMod(customer.arrivalOrdinal() - 1, people.length)],
                     target, customer.tableId() != null));
         }
@@ -447,9 +523,17 @@ public final class RestaurantScene {
             drawActorTag(graphics, chef, "Adam");
             drawActorTag(graphics, waiter, "Alex");
             drawActorTag(graphics, cashier, "Amelia");
+            drawActorTag(graphics, host, "Host");
             actors.forEach((id, actor) -> {
-                if (actor != chef && actor != waiter && actor != cashier) drawCustomerTag(graphics, actor, id);
+                if (actor != chef && actor != waiter && actor != cashier && actor != host) {
+                    drawCustomerTag(graphics, actor, id);
+                }
             });
+            if (hiddenQueueCount > 0) {
+                drawText(graphics, "+" + hiddenQueueCount + " waiting",
+                        0.5 * TILE_SIZE,
+                        (CUSTOMER_SPAWN.row - 1) * TILE_SIZE - 40, Color.web("#FFD54A"));
+            }
         });
     }
 
@@ -602,6 +686,7 @@ public final class RestaurantScene {
         private final ArrayDeque<Walk> walks = new ArrayDeque<>();
         private Runnable onArrival;
         private double walkDelay;
+        private boolean faceRightWhenIdle;
 
         private Actor(Tile start, Image[][] idleFrames, Image[][] runFrames, Image[] sittingFrames,
                 Direction direction) {
@@ -622,6 +707,20 @@ public final class RestaurantScene {
             follow(requirePath(tile(), target), sit);
         }
 
+        /** Queue guests always look towards the counter once they stop moving. */
+        private void requestQueueDestination(Tile target) {
+            requestDestination(target, false);
+            faceRightWhenIdle = true;
+        }
+
+        private void faceDown() {
+            direction = Direction.DOWN;
+        }
+
+        private void faceLeft() {
+            direction = Direction.LEFT;
+        }
+
         private void walkTo(Tile target, Runnable arrived) {
             walks.addLast(new Walk(target, arrived));
             if (!isMoving() && onArrival == null) startNextWalk();
@@ -636,6 +735,7 @@ public final class RestaurantScene {
 
         private void follow(List<Tile> path, boolean sitOnArrival) {
             walkDelay = 0;
+            faceRightWhenIdle = false;
             destination = path.get(path.size() - 1);
             requestedSit = sitOnArrival;
             column = path.get(0).column;
@@ -668,6 +768,7 @@ public final class RestaurantScene {
                 startNextWalk();
             }
             if (!isMoving() || delta <= 0) {
+                if (faceRightWhenIdle) direction = Direction.RIGHT;
                 return false;
             }
             Tile from = path.get(nextPathIndex - 1);
@@ -688,6 +789,8 @@ public final class RestaurantScene {
             nextPathIndex = 0;
             if (sitOnArrival) {
                 seated = true;
+                direction = Direction.RIGHT;
+            } else if (faceRightWhenIdle) {
                 direction = Direction.RIGHT;
             }
             return true;
