@@ -126,6 +126,8 @@ and N/A satisfaction after 18 turns.
 API. A type switch in the controller would duplicate these rules across turns.
 The factory keeps the one necessary mapping from customer type to subclass.
 
+[Stage 1 class diagram](https://github.com/Chin-Wee/Restaurant_Rush/blob/stage-1/docs/uml/RestaurantRush_ClassDiagram_Phase1.drawio) ·
+[Stage 2 class diagram](https://github.com/Chin-Wee/Restaurant_Rush/blob/stage-2/docs/uml/RestaurantRush_ClassDiagram_Phase2.drawio) ·
 [Stage 3 class diagram](docs/uml/RestaurantRush_ClassDiagram_Phase3.drawio) ·
 [Sequence diagram](docs/uml/Stage3_Sequence.md) ·
 [Stage 3 AI chat history](ai-history/stage-3/chat-01.md) ·
