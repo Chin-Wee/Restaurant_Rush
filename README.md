@@ -141,7 +141,10 @@ The factory keeps the one necessary mapping from customer type to subclass.
 | Changed `Customer.java`, `Waiter.java`, `GameConfig.java` and `TurnController.java` | Dispatch dish choice, decay and pricing through the customer. Configure typed arrivals and lock the price when taking the order. |
 | Changed `GameSnapshot.java`, `ConsoleApp.java`, `ConsoleUI.java`, `App.java`, `RestaurantScreen.java` and `RestaurantScene.java` | Launch the Stage 2 configuration and display customer types and bills in both interfaces. |
 
-[Compare Stage 1 and Stage 2](https://github.com/Chin-Wee/Restaurant_Rush/compare/stage-1..stage-2)
+The Stage 2 branch adds its AI chat history and replaces the Stage 1 class
+diagram with the Stage 2 diagram.
+
+[Stage 2 feature commit](https://github.com/Chin-Wee/Restaurant_Rush/commit/e0df5d0)
 
 ### Stage 2 to Stage 3
 
@@ -154,7 +157,10 @@ The factory keeps the one necessary mapping from customer type to subclass.
 | Changed `Customer.java`, `CustomerFactory.java`, `CustomerState.java`, `CustomerType.java`, `Order.java`, `OrderStatus.java`, `Table.java`, `WaitingQueue.java`, `PaymentRecord.java`, `Staff.java`, `Chef.java`, `Cashier.java`, `ScoreBoard.java` and `GameResult.java` | Add capped satisfaction recovery to Customer and document responsibilities, lifecycle rules and existing contracts. |
 | Changed `ConsoleApp.java`, `ConsoleUI.java`, `App.java`, `GameView.java`, `JavaFXView.java`, `RestaurantUiState.java`, `RestaurantScreen.java`, `StartMenuScreen.java`, `UiEffects.java` and `RestaurantScene.java` | Add difficulty selection and show Host, queue and Happy Hour state. Document the view boundary and controls. |
 
-[Compare Stage 2 and Stage 3](https://github.com/Chin-Wee/Restaurant_Rush/compare/stage-2..stage-3)
+The Stage 3 branch adds the final class diagram, the sequence diagram and its AI
+chat history. The Stage 2 diagram and chat remain available at the Stage 2 tag.
+
+[Stage 3 feature commit](https://github.com/Chin-Wee/Restaurant_Rush/commit/a090535)
 
 ## API documentation
 
