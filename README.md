@@ -112,6 +112,18 @@ For **DEFEAT**, decline Happy Hour and choose Host **2**, Waiter **4** and
 Chef **2** every turn. Expected 0 served, 0 paid, 2 departures, $0.00 revenue
 and N/A satisfaction after 18 turns.
 
+## Submission video
+
+| Required segment | Time | Presenter |
+| --- | --- | --- |
+| Launch the submitted game and explain the objective | 0:00–2:00 | Chin Wee |
+| Make manager choices under staff constraints | 0:00–2:00 | Chin Wee |
+| Follow a dish from READY to SERVED to payment | 0:00–2:00 | Chin Wee |
+| Demonstrate a Stage 2 VIP or Critic behavior | 2:00–3:30 | Bhavya |
+| Demonstrate a Stage 3 feature | 3:30–5:00 | Hecheng |
+| Show an accelerated victory and defeat | 5:00–7:00 | Chin Wee |
+| Compare stage tags and changes, then explain the diagrams | 5:00–7:00 (tags), 7:00–11:00 (class diagram and SOLID), 11:00–15:00 (sequence diagram) | Chin Wee, Lucas, Sweeda |
+
 ## Design
 
 | Abstraction | Responsibility |
