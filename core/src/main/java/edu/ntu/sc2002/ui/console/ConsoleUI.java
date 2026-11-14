@@ -31,19 +31,31 @@ public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
      * resulting summary.
      */
     public void run() {
+        TurnResolution completedTurn = null;
+        GameSnapshot completedSnapshot = null;
+        int completedEventOffset = 0;
         try {
             while (controller.phase() != TurnPhase.GAME_OVER) {
                 controller.beginTurn();
-                displayTurnStart(controller.snapshot());
                 TurnResolution arrival = controller.processArrival();
+                displayTurnStart(controller.snapshot());
+                if (completedTurn != null) {
+                    displayTurnSummary(completedTurn, completedSnapshot, completedEventOffset);
+                }
                 displayEvents(arrival);
-                System.out.println("Available tasks: " + staffTasks(controller.snapshot()));
                 getManagerChoices();
-                displayTurnSummary(controller.lastResolution());
+
+                // Capture the completed turn before beginTurn resets the controller and event cursor.
+                completedTurn = controller.lastResolution();
+                completedSnapshot = controller.snapshot();
+                completedEventOffset = displayedEvents;
             }
         } catch (NoSuchElementException ended) {
             System.out.println("Input ended. Game interrupted before a result.");
             return;
+        }
+        if (completedTurn != null) {
+            displayTurnSummary(completedTurn, completedSnapshot, completedEventOffset);
         }
         displayEndGameResult(controller.result());
     }
@@ -162,8 +174,12 @@ public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
     }
 
     private void displayEvents(TurnResolution resolution) {
-        resolution.events().subList(displayedEvents, resolution.events().size()).forEach(System.out::println);
+        displayEvents(resolution, displayedEvents);
         displayedEvents = resolution.events().size();
+    }
+
+    private static void displayEvents(TurnResolution resolution, int firstUnreadEvent) {
+        resolution.events().subList(firstUnreadEvent, resolution.events().size()).forEach(System.out::println);
     }
 
     private static String satisfaction(Double value) {
@@ -206,8 +222,12 @@ public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
     public void displayError(String message) { System.out.println("Invalid choice: " + message + " Try again."); }
 
     public void displayTurnSummary(TurnResolution resolution) {
-        displayEvents(resolution);
-        GameSnapshot s = controller.snapshot();
+        displayTurnSummary(resolution, controller.snapshot(), displayedEvents);
+        displayedEvents = resolution.events().size();
+    }
+
+    private static void displayTurnSummary(TurnResolution resolution, GameSnapshot s, int firstUnreadEvent) {
+        displayEvents(resolution, firstUnreadEvent);
         System.out.printf("End turn %d: served %d | paid %d | departures %d | revenue %s | average paid satisfaction %s | turns used %d%n",
                 resolution.turn(), s.servedCount(), s.paidCount(), s.unhappyDepartures(), TurnController.money(s.revenueCents()),
                 satisfaction(s.averagePaidSatisfaction()), s.turnsUsed());
