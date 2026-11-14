@@ -27,8 +27,8 @@ public final class ConsoleUI implements edu.ntu.sc2002.ui.GameView {
 
     /**
      * Runs the command-line loop until the controller reaches {@link TurnPhase#GAME_OVER} or input
-     * ends. Each iteration begins a turn, displays the snapshot, collects commands and prints the
-     * resulting summary.
+     * ends. It displays the post-arrival snapshot and the previous turn's summary before collecting
+     * the current turn's commands.
      */
     public void run() {
         TurnResolution completedTurn = null;
