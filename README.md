@@ -114,7 +114,10 @@ selection. The controller uses the shared `Customer` API during service.
 | Changed `Customer.java`, `Waiter.java`, `GameConfig.java` and `TurnController.java` | Dispatch dish choice, decay and pricing through the customer. Configure typed arrivals and lock the price when taking the order. |
 | Changed `GameSnapshot.java`, `ConsoleApp.java`, `ConsoleUI.java`, `App.java`, `RestaurantScreen.java` and `RestaurantScene.java` | Launch the Stage 2 configuration and display customer types and bills in both interfaces. |
 
-[Compare Stage 1 and Stage 2](https://github.com/Chin-Wee/Restaurant_Rush/compare/stage-1..stage-2)
+The Stage 2 branch adds its AI chat history and replaces the Stage 1 class
+diagram with the Stage 2 diagram.
+
+[Stage 2 feature commit](https://github.com/Chin-Wee/Restaurant_Rush/commit/e0df5d0)
 
 ## API documentation
 
