@@ -4,6 +4,9 @@
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
+                <mxCell id="design-notes" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" value="&lt;b&gt;Encapsulation&lt;/b&gt;: Order keeps its price and preparation state private. &lt;b&gt;Polymorphism&lt;/b&gt;: Customer subclasses provide waiting loss and bill calculation. &lt;b&gt;Composition&lt;/b&gt;: Restaurant owns the Happy Hour policy for one game." vertex="1">
+                    <mxGeometry x="2825" y="1810" width="1030" height="75" as="geometry"/>
+                </mxCell>
                 <mxCell id="4Z8rKcAWHVsffrRWQ36D-97" parent="1" style="whiteSpace=wrap;html=1;" value="" vertex="1">
                     <mxGeometry height="998" width="810" x="1430" y="3075" as="geometry"/>
                 </mxCell>

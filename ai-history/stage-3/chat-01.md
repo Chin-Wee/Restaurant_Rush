@@ -1,8 +1,8 @@
 # Restaurant Rush — Stage 3 AI-Assisted Development History
 
-**Consolidated on:** 2026-11-14  
-**Project:** SC2002 Restaurant Rush, Stage 3  
-**Class diagram:** `docs/uml/RestaurantRush_ClassDiagram_Phase3.drawio`
+- Consolidated on 2026-11-14
+- SC2002 Restaurant Rush, Stage 3
+- [Class diagram](../../docs/uml/RestaurantRush_ClassDiagram_Phase3.drawio)
 
 > This is a curated history of the substantive prompts, decisions, replies and
 > verification results. Tool calls, raw build logs and repetitive prompt text are
