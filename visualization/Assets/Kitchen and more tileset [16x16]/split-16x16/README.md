@@ -1,1 +1,0 @@
-Split from `tileset.png` into visible 16x16 cells. The atlas is 9 columns by 37 rows; filenames use zero-based column and row coordinates, and `manifest.csv` maps each crop to its source pixel position. The selected kitchen chunk is columns 0–5, rows 10–12.
