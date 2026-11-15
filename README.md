@@ -3,7 +3,7 @@
 SC2002 Group 5 turn-based restaurant game. This branch contains **Stage 3**.
 The Java CLI is in `core` and the optional JavaFX interface is in `visualization`.
 
-[Repository](https://github.com/Chin-Wee/Restaurant_Rush) · [Stage 1](https://github.com/Chin-Wee/Restaurant_Rush/tree/stage-1) · [Stage 2](https://github.com/Chin-Wee/Restaurant_Rush/tree/stage-2) · [Stage 3](https://github.com/Chin-Wee/Restaurant_Rush/tree/stage-3)
+[Repository](https://github.com/Chin-Wee/Restaurant_Rush) · [Stage 1 branch](https://github.com/Chin-Wee/Restaurant_Rush/tree/feat/stage-1) · [Stage 2 branch](https://github.com/Chin-Wee/Restaurant_Rush/tree/feat/stage-2) · [Stage 3 branch](https://github.com/Chin-Wee/Restaurant_Rush/tree/feat/stage-3)
 
 ## Setup
 
@@ -74,55 +74,52 @@ restores up to 15 satisfaction to eligible customers at the start of each active
 turn, and applies 20% off after the customer discount. The order locks the final
 bill when the Waiter takes it.
 
-## Reproduce a victory and defeat
+## Instant CLI tests
 
-Run the CLI with seed `2026`. Waiter options are **1** seat, **2** take order,
-**3** serve and **4** wait. Chef options are **1** advance one preparation unit
-and **2** wait. Enter the customer ID when prompted.
+After building the CLI, run either command from the repository root in Bash or
+Zsh. Each command plays all 18 turns and prints the final result if it matches.
 
-Run Easy. Host options are **1** seat and **2** wait. For the victory, decline
-Happy Hour on turns 1–3 and activate it on turn 4. Then follow this schedule:
+**Victory**
 
-| Turn | Host task | Waiter task | Chef task |
-| --- | --- | --- | --- |
-| 1 | Seat C1 | Take order C1 | Advance C1 |
-| 2 | Wait | Wait | Advance C1 |
-| 3 | Wait | Serve C1 | Wait |
-| 4 | Seat C2 | Take order C2 | Advance C2 |
-| 5 | Wait | Wait | Advance C2 |
-| 6 | Wait | Serve C2 | Wait |
-| 7 | Seat C3 | Take order C3 | Advance C3 |
-| 8 | Wait | Serve C3 | Wait |
-| 9 | Wait | Wait | Wait |
-| 10 | Seat C4 | Take order C4 | Advance C4 |
-| 11 | Wait | Wait | Advance C4 |
-| 12 | Wait | Serve C4 | Wait |
-| 13 | Seat C5 | Take order C5 | Advance C5 |
-| 14 | Wait | Wait | Advance C5 |
-| 15 | Wait | Wait | Advance C5 |
-| 16 | Seat C6 | Serve C5 | Wait |
-| 17 | Wait | Take order C6 | Advance C6 |
-| 18 | Wait | Wait | Advance C6 |
+```bash
+(
+  set -o pipefail
+  printf '%s\n' \
+    2 1 C1 2 C1 1 C1  2 2 4 1 C1  2 2 3 C1 2 \
+    1 1 C2 2 C2 1 C2  2 4 1 C2  2 3 C2 2 \
+    1 C3 2 C3 1 C3  2 3 C3 2  2 4 2 \
+    1 C4 2 C4 1 C4  2 4 1 C4  2 3 C4 2 \
+    1 C5 2 C5 1 C5  2 4 1 C5  2 4 1 C5 \
+    1 C6 3 C5 2  2 2 C6 1 C6  2 4 1 C6 |
+    java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026 easy |
+    grep -Fx 'VICTORY — served 5, paid 5, departures 0, revenue $91.26, average paid satisfaction 84.6, turns used 18'
+)
+```
 
-Expected **VICTORY** after 18 turns. Served 5, paid 5, departures 0, revenue
-$91.26 and average paid satisfaction 84.6. C1 orders the Salad + Burger combo.
-C2 orders Pasta during Happy Hour for $12.96 and pays that price on turn 8.
+**Defeat**
 
-For **DEFEAT**, decline Happy Hour and choose Host **2**, Waiter **4** and
-Chef **2** every turn. Expected 0 served, 0 paid, 2 departures, $0.00 revenue
-and N/A satisfaction after 18 turns.
+```bash
+(
+  set -o pipefail
+  awk 'BEGIN { for (i = 0; i < 18; i++) print "2\n2\n4\n2" }' |
+    java -cp core/target/classes edu.ntu.sc2002.ConsoleApp 2026 easy |
+    grep -Fx 'DEFEAT — served 0, paid 0, departures 2, revenue $0.00, average paid satisfaction N/A, turns used 18'
+)
+```
 
 ## Submission video
 
-| Required segment | Time | Presenter |
+[Watch the Group 5 submission](https://www.youtube.com/watch?v=evSWk2gFYU0) or jump to any of the seven required segments below.
+
+| Required segment | Jump to | Presenter |
 | --- | --- | --- |
-| Launch the submitted game and explain the objective | 0:00–2:00 | Chin Wee |
-| Make manager choices under staff constraints | 0:00–2:00 | Chin Wee |
-| Follow a dish from READY to SERVED to payment | 0:00–2:00 | Chin Wee |
-| Show an accelerated victory and defeat | 2:00–4:00 | Chin Wee |
-| Demonstrate a Stage 2 VIP or Critic behavior | 4:00–5:30 | Bhavya |
-| Demonstrate a Stage 3 feature | 5:30–7:00 | Hecheng |
-| Compare stage tags and changes, then explain the diagrams | 2:00–4:00 (tags), 7:00–11:00 (class diagram and SOLID), 11:00–15:00 (sequence diagram) | Chin Wee, Lucas, Sweeda |
+| Launch the game and explain the objective | [1:00 (launch)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=60s) · [2:29 (win conditions)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=149s) | Chin Wee |
+| Make manager choices under staff constraints | [1:19](https://www.youtube.com/watch?v=evSWk2gFYU0&t=79s) | Chin Wee |
+| Follow a dish from READY to SERVED to payment | [1:43 (ready)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=103s) · [1:47 (serve)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=107s) · [2:20 (payment)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=140s) | Chin Wee |
+| Show an accelerated victory and defeat | [3:18 (victory)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=198s) · [4:04 (defeat)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=244s) | Chin Wee |
+| Demonstrate Stage 2 customer behavior | [4:17 (customer types)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=257s) · [5:01 (VIP bill)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=301s) · [5:26 (Critic)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=326s) | Bhavya |
+| Demonstrate Stage 3 features | [5:40 (Host and combo meal)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=340s) · [6:34 (Happy Hour)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=394s) | Hecheng |
+| Explain the stage branches, class diagrams, and sequence diagram | [0:36 (branches)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=36s) · [7:34 (Stage 1 classes)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=454s) · [9:50 (Stage 2 classes)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=590s) · [10:19 (Stage 3 classes)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=619s) · [11:00 (sequence)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=660s) | Chin Wee, Lucas, Sweeda |
 
 ## Design
 
@@ -147,6 +144,19 @@ The factory keeps the one necessary mapping from customer type to subclass.
 
 ## Stage transitions
 
+Counts come from the tagged submissions and cover production Java source files in
+`core` and `visualization`, with one top-level type per file. The class counts in
+parentheses exclude records, enums, and interfaces. Stage 1 is the baseline;
+each later stage is compared with the previous tag.
+
+| Tagged stage | Total files | Added files | Changed files | What changed |
+| --- | ---: | ---: | ---: | --- |
+| [Stage 1](https://github.com/Chin-Wee/Restaurant_Rush/tree/stage-1) | 37 (21 classes) | — | — | Playable baseline with a shared turn controller for the CLI and JavaFX views. |
+| [Stage 2](https://github.com/Chin-Wee/Restaurant_Rush/tree/stage-2) | 42 (25 classes) | 5 (4 classes) | 10 (8 classes) | Made `Customer` abstract and added Regular, VIP, and Critic subclasses, a customer type enum, and a factory. |
+| [Stage 3](https://github.com/Chin-Wee/Restaurant_Rush/tree/stage-3) | 48 (28 classes) | 6 (3 classes) | 37 (22 classes) | Added the Host, combo meals, and Happy Hour, and updated the turn flow and both views. |
+
+In Stage 3, 21 of the 37 changed files differ only in comments or formatting.
+
 ### Stage 1 to Stage 2
 
 | Files | Change |
@@ -168,7 +178,7 @@ diagram with the Stage 2 diagram.
 | Added `ComboMeal.java`, `HappyHourPolicy.java` and `HappyHourStatus.java` | Represent composed menu items and the once-per-game pricing policy. |
 | Changed `TurnController.java`, `GameConfig.java`, `GameSnapshot.java`, `TurnChoicesDTO.java`, `TurnPhase.java`, `ChefChoiceDTO.java`, `WaiterChoiceDTO.java`, `ChefTaskType.java` and `WaiterTaskType.java` | Carry the Host choice and Happy Hour state through the existing turn boundary. Document the command types and phases. |
 | Changed `Restaurant.java`, `Waiter.java`, `Menu.java` and `MenuItem.java` | Let the Host and Waiter seat the chosen customer, add combo items and apply Happy Hour when taking an order. Moved selected seating out of `Restaurant.seat`. |
-| Changed `Customer.java`, `CustomerFactory.java`, `CustomerState.java`, `CustomerType.java`, `Order.java`, `OrderStatus.java`, `Table.java`, `WaitingQueue.java`, `PaymentRecord.java`, `Staff.java`, `Chef.java`, `Cashier.java`, `ScoreBoard.java` and `GameResult.java` | Add capped satisfaction recovery to Customer and document responsibilities, lifecycle rules and existing contracts. |
+| Changed `Customer.java`, `CustomerFactory.java`, `CustomerState.java`, `CustomerType.java`, `Order.java`, `OrderStatus.java`, `Table.java`, `WaitingQueue.java`, `PaymentRecord.java`, `Staff.java`, `Chef.java`, `Cashier.java`, `ScoreBoard.java` and `GameResult.java` | Document existing satisfaction recovery, lifecycle rules, and domain contracts. |
 | Changed `ConsoleApp.java`, `ConsoleUI.java`, `App.java`, `GameView.java`, `JavaFXView.java`, `RestaurantUiState.java`, `RestaurantScreen.java`, `StartMenuScreen.java`, `UiEffects.java` and `RestaurantScene.java` | Add difficulty selection and show Host, queue and Happy Hour state. Document the view boundary and controls. |
 
 The Stage 3 branch adds the final class diagram, the sequence diagram and its AI
