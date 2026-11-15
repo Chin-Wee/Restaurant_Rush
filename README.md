@@ -154,9 +154,20 @@ The factory keeps the one necessary mapping from customer type to subclass.
 [Stage 1 class diagram](https://github.com/Chin-Wee/Restaurant_Rush/blob/stage-1/docs/uml/RestaurantRush_ClassDiagram_Phase1.drawio) ·
 [Stage 2 class diagram](https://github.com/Chin-Wee/Restaurant_Rush/blob/stage-2/docs/uml/RestaurantRush_ClassDiagram_Phase2.drawio) ·
 [Stage 3 class diagram](docs/uml/RestaurantRush_ClassDiagram_Phase3.drawio) ·
-[Sequence diagram](docs/uml/Stage3_Sequence.md) ·
+[CLI victory replay diagram](docs/uml/Stage3_Sequence.md) ·
 [Stage 3 AI chat history](ai-history/stage-3/chat-01.md) ·
 [Stage 2 AI chat history](https://github.com/Chin-Wee/Restaurant_Rush/blob/stage-2/ai-history/stage-2/chat-01.md)
+
+### Stage 3 submission sequence diagrams
+
+The six diagrams follow a VIP customer from arrival and seating through Happy Hour, payment, and the final result.
+
+1. [Turn 1: Arrival and seating](docs/uml/sequence/Step1_Turn1_Arrival_and_Seating.drawio.png)
+2. [Turn 2: Happy Hour and the order](docs/uml/sequence/Step2_Turn2_HappyHour_and_Order.drawio.png)
+3. [Turn 3: The order is served](docs/uml/sequence/Step3_Turn3_Ready_to_Served.drawio.png)
+4. [Turn 4: The VIP finishes eating](docs/uml/sequence/Step4_Turn4_Eating_and_ReadyToPay.drawio.png)
+5. [Turn 5: Payment and table release](docs/uml/sequence/Step5_Turn5_Payment.drawio.png)
+6. [Turns 6–18: Remaining turns and final result](docs/uml/sequence/Step6_Turns6-18_Result_Check.drawio.png)
 
 ## Stage transitions
 
@@ -197,7 +208,7 @@ diagram with the Stage 2 diagram.
 | Changed `Customer.java`, `CustomerFactory.java`, `CustomerState.java`, `CustomerType.java`, `Order.java`, `OrderStatus.java`, `Table.java`, `WaitingQueue.java`, `PaymentRecord.java`, `Staff.java`, `Chef.java`, `Cashier.java`, `ScoreBoard.java` and `GameResult.java` | Document existing satisfaction recovery, lifecycle rules, and domain contracts. |
 | Changed `ConsoleApp.java`, `ConsoleUI.java`, `App.java`, `GameView.java`, `JavaFXView.java`, `RestaurantUiState.java`, `RestaurantScreen.java`, `StartMenuScreen.java`, `UiEffects.java` and `RestaurantScene.java` | Add difficulty selection and show Host, queue and Happy Hour state. Document the view boundary and controls. |
 
-The Stage 3 branch adds the final class diagram, the sequence diagram and its AI
+The Stage 3 branch adds the final class diagram, the sequence diagrams and its AI
 chat history. The Stage 2 diagram and chat remain available at the Stage 2 tag.
 
 [Stage 3 feature commit](https://github.com/Chin-Wee/Restaurant_Rush/commit/a090535)
