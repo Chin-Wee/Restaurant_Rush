@@ -5,6 +5,8 @@ The Java CLI is in `core` and the optional JavaFX interface is in `visualization
 
 [Repository](https://github.com/Chin-Wee/Restaurant_Rush) · [Stage 1 branch](https://github.com/Chin-Wee/Restaurant_Rush/tree/feat/stage-1) · [Stage 2 branch](https://github.com/Chin-Wee/Restaurant_Rush/tree/feat/stage-2) · [Stage 3 branch](https://github.com/Chin-Wee/Restaurant_Rush/tree/feat/stage-3)
 
+![Restaurant Rush title screen with Start Game and Menu buttons](docs/screenshots/title-screen.png)
+
 ## Setup
 
 Install **JDK 17** and run the commands from the repository root. The Maven Wrapper
@@ -120,6 +122,20 @@ Zsh. Each command plays all 18 turns and prints the final result if it matches.
 | Demonstrate Stage 2 customer behavior | [4:17 (customer types)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=257s) · [5:01 (VIP bill)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=301s) · [5:26 (Critic)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=326s) | Bhavya |
 | Demonstrate Stage 3 features | [5:40 (Host and combo meal)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=340s) · [6:34 (Happy Hour)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=394s) | Hecheng |
 | Explain the stage branches, class diagrams, and sequence diagram | [0:36 (branches)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=36s) · [7:34 (Stage 1 classes)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=454s) · [9:50 (Stage 2 classes)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=590s) · [10:19 (Stage 3 classes)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=619s) · [11:00 (sequence)](https://www.youtube.com/watch?v=evSWk2gFYU0&t=660s) | Chin Wee, Lucas, Sweeda |
+
+## Gameplay screenshots
+
+**Stage 1.** The Waiter can seat the first customer or wait.
+
+![Stage 1 gameplay showing the Waiter's seating options](docs/screenshots/stage-1-gameplay.png)
+
+**Stage 2.** The Chef selects the Critic's pasta order.
+
+![Stage 2 gameplay showing the Critic and the Chef's selected task](docs/screenshots/stage-2-gameplay.png)
+
+**Stage 3.** Happy Hour is active, a VIP is in the queue, and a combo meal is ready to serve.
+
+![Stage 3 gameplay showing the Host, a queued VIP, a ready combo, and active Happy Hour](docs/screenshots/stage-3-gameplay.png)
 
 ## Design
 
